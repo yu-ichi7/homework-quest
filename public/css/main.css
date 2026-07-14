@@ -1,0 +1,224 @@
+:root {
+  --bg: #f4f7fb;
+  --card: #ffffff;
+  --ink: #1f2937;
+  --muted: #6b7280;
+  --line: #e5e7eb;
+  --accent: #6366f1;
+  --accent-soft: #eef2ff;
+  --good: #22c55e;
+  --good-soft: #dcfce7;
+  --warn: #f59e0b;
+  --shadow: 0 6px 20px rgba(31, 41, 55, 0.08);
+  --radius: 18px;
+}
+
+* { box-sizing: border-box; }
+
+body {
+  margin: 0;
+  font-family: "Hiragino Kaku Gothic ProN", "Yu Gothic UI", "Meiryo", system-ui, sans-serif;
+  color: var(--ink);
+  background: var(--bg);
+  -webkit-tap-highlight-color: transparent;
+}
+
+.app-header {
+  background: var(--card);
+  border-bottom: 1px solid var(--line);
+  padding: 12px 16px;
+  position: sticky;
+  top: 0;
+  z-index: 10;
+}
+.app-header h1 { margin: 0 0 8px; font-size: 20px; }
+.app-header h1 .emoji { margin-right: 6px; }
+.app-header nav { display: flex; gap: 8px; }
+.app-header nav a {
+  flex: 1;
+  text-align: center;
+  padding: 10px;
+  border-radius: 12px;
+  text-decoration: none;
+  color: var(--muted);
+  font-weight: 700;
+  background: var(--bg);
+}
+.app-header nav a.active { color: #fff; background: var(--accent); }
+
+.app-main { max-width: 720px; margin: 0 auto; padding: 16px; }
+
+.panel {
+  background: var(--card);
+  border-radius: var(--radius);
+  box-shadow: var(--shadow);
+  padding: 16px;
+  margin-bottom: 16px;
+}
+.panel h2 { margin: 0 0 12px; font-size: 16px; }
+
+/* だれのページかを示すバナー（一人用） */
+.owner-banner {
+  display: flex; align-items: center; gap: 4px;
+  font-size: 20px; font-weight: 800; margin-bottom: 16px;
+}
+.owner-banner .avatar {
+  display: inline-flex; align-items: center; justify-content: center;
+  width: 38px; height: 38px; border-radius: 50%;
+  color: #fff; margin-right: 8px; font-size: 17px;
+}
+
+/* 子ども切り替えタブ */
+.child-tabs { display: flex; gap: 10px; margin-bottom: 16px; }
+.child-tab {
+  flex: 1;
+  border: 3px solid var(--line);
+  background: var(--card);
+  border-radius: var(--radius);
+  padding: 14px;
+  font-size: 18px;
+  font-weight: 800;
+  cursor: pointer;
+  color: var(--ink);
+  transition: transform 0.08s;
+}
+.child-tab:active { transform: scale(0.97); }
+.child-tab.active { border-color: var(--tab-color, var(--accent)); background: var(--tab-soft, var(--accent-soft)); }
+.child-tab .avatar {
+  display: inline-flex; align-items: center; justify-content: center;
+  width: 34px; height: 34px; border-radius: 50%;
+  background: var(--tab-color, var(--accent)); color: #fff;
+  margin-right: 8px; font-size: 16px;
+}
+
+/* レベル・XPバー */
+.level-head { display: flex; align-items: center; gap: 12px; margin-bottom: 10px; }
+.level-badge {
+  min-width: 58px; height: 58px; border-radius: 16px;
+  display: flex; flex-direction: column; align-items: center; justify-content: center;
+  background: var(--accent); color: #fff; font-weight: 800; line-height: 1;
+}
+.level-badge .num { font-size: 22px; }
+.level-badge .lv { font-size: 10px; opacity: 0.85; }
+.level-name { font-size: 18px; font-weight: 800; }
+.level-sub { color: var(--muted); font-size: 13px; }
+.xpbar { height: 16px; background: var(--bg); border-radius: 999px; overflow: hidden; }
+.xpbar > span { display: block; height: 100%; background: linear-gradient(90deg, #818cf8, #6366f1); border-radius: 999px; transition: width 0.5s; }
+
+/* バッジ */
+.badges { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 12px; }
+.badge-chip {
+  display: flex; align-items: center; gap: 6px;
+  background: var(--good-soft); color: #166534;
+  padding: 6px 10px; border-radius: 999px; font-size: 13px; font-weight: 700;
+}
+.badge-chip.locked { background: var(--bg); color: #9ca3af; filter: grayscale(1); }
+
+/* タスクカード */
+.task-list { display: flex; flex-direction: column; gap: 10px; }
+.task-card {
+  display: flex; align-items: center; gap: 14px;
+  border: 2px solid var(--line); border-radius: var(--radius);
+  padding: 14px; background: var(--card); cursor: pointer;
+  transition: transform 0.08s, background 0.2s, border-color 0.2s;
+}
+.task-card:active { transform: scale(0.98); }
+.task-card .t-icon { font-size: 30px; width: 44px; text-align: center; }
+.task-card .t-body { flex: 1; }
+.task-card .t-title { font-size: 18px; font-weight: 800; }
+.task-card .t-points { color: var(--warn); font-weight: 800; font-size: 14px; }
+.task-card .t-check {
+  width: 40px; height: 40px; border-radius: 50%;
+  border: 3px solid var(--line); display: flex; align-items: center; justify-content: center;
+  font-size: 22px; color: transparent;
+}
+.task-card.done { background: var(--good-soft); border-color: var(--good); }
+.task-card.done .t-title { text-decoration: line-through; color: var(--muted); }
+.task-card.done .t-check { background: var(--good); border-color: var(--good); color: #fff; }
+
+.empty { text-align: center; color: var(--muted); padding: 30px 10px; font-size: 15px; }
+
+/* お祝いモーダル */
+.modal-back {
+  position: fixed; inset: 0; background: rgba(0,0,0,0.5);
+  display: flex; align-items: center; justify-content: center; padding: 24px; z-index: 50;
+}
+.modal-back[hidden] { display: none; }
+.modal {
+  background: var(--card); border-radius: 24px; padding: 28px 24px; text-align: center;
+  max-width: 340px; width: 100%; box-shadow: var(--shadow); animation: pop 0.3s ease;
+}
+@keyframes pop { from { transform: scale(0.7); opacity: 0; } to { transform: scale(1); opacity: 1; } }
+.modal .big-emoji { font-size: 64px; }
+.modal h3 { margin: 8px 0; font-size: 22px; }
+.modal p { color: var(--muted); margin: 4px 0 18px; }
+.modal button, .btn {
+  border: none; background: var(--accent); color: #fff; font-weight: 800;
+  padding: 12px 20px; border-radius: 12px; font-size: 16px; cursor: pointer;
+}
+.btn.secondary { background: var(--bg); color: var(--ink); }
+.btn.danger { background: #ef4444; }
+.btn.small { padding: 8px 12px; font-size: 14px; }
+
+/* フォーム（親画面） */
+.field { margin-bottom: 12px; }
+.field label { display: block; font-weight: 700; margin-bottom: 6px; font-size: 14px; }
+.field input, .field select {
+  width: 100%; padding: 12px; border: 2px solid var(--line); border-radius: 12px;
+  font-size: 16px; font-family: inherit; background: var(--card); color: var(--ink);
+}
+.days-pick { display: flex; gap: 6px; flex-wrap: wrap; }
+.days-pick label {
+  display: inline-flex; align-items: center; justify-content: center;
+  width: 42px; height: 42px; border: 2px solid var(--line); border-radius: 10px;
+  font-weight: 700; cursor: pointer; margin: 0;
+}
+.days-pick input { display: none; }
+.days-pick input:checked + span,
+.days-pick label.on { }
+.days-pick label:has(input:checked) { background: var(--accent); color: #fff; border-color: var(--accent); }
+
+.row { display: flex; gap: 10px; align-items: center; }
+.row > * { flex: 1; }
+
+/* 親画面のタスク行 */
+.task-row {
+  display: flex; align-items: center; gap: 10px; padding: 10px 0;
+  border-bottom: 1px solid var(--line);
+}
+.task-row:last-child { border-bottom: none; }
+.task-row .icon { font-size: 22px; }
+.task-row .meta { flex: 1; }
+.task-row .meta .name { font-weight: 700; }
+.task-row .meta .sub { color: var(--muted); font-size: 12px; }
+
+/* カレンダー */
+.cal { display: grid; grid-template-columns: repeat(7, 1fr); gap: 4px; }
+.cal .dow { text-align: center; font-size: 12px; color: var(--muted); font-weight: 700; padding: 4px 0; }
+.cal .cell {
+  aspect-ratio: 1; border-radius: 10px; background: var(--bg);
+  display: flex; flex-direction: column; align-items: center; justify-content: center;
+  font-size: 13px; position: relative;
+}
+.cal .cell.empty { background: transparent; }
+.cal .cell.done { background: var(--good-soft); color: #166534; font-weight: 800; }
+.cal .cell.today { outline: 3px solid var(--accent); }
+.cal .cell .pt { font-size: 10px; color: var(--warn); font-weight: 800; }
+
+/* 棒グラフ */
+.bars { display: flex; align-items: flex-end; gap: 8px; height: 140px; padding-top: 10px; }
+.bars .bar-col { flex: 1; display: flex; flex-direction: column; align-items: center; gap: 4px; height: 100%; justify-content: flex-end; }
+.bars .bar {
+  width: 70%; background: linear-gradient(180deg, #818cf8, #6366f1);
+  border-radius: 8px 8px 0 0; min-height: 3px; transition: height 0.4s;
+}
+.bars .bar-label { font-size: 11px; color: var(--muted); }
+.bars .bar-val { font-size: 11px; font-weight: 800; color: var(--accent); }
+
+.stat-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 10px; }
+.stat {
+  background: var(--bg); border-radius: 14px; padding: 12px; text-align: center;
+}
+.stat .n { font-size: 26px; font-weight: 800; }
+.stat .l { font-size: 12px; color: var(--muted); }
+.stat .n .u { font-size: 14px; }

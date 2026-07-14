@@ -1,0 +1,52 @@
+<!doctype html>
+<html lang="ja">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1" />
+  <title>お手伝いクエスト</title>
+  <link rel="stylesheet" href="/css/main.css" />
+</head>
+<body>
+  <header class="app-header">
+    <h1><span class="emoji">🏅</span>お手伝いクエスト</h1>
+    <nav>
+      <a href="/index.html" class="active">今日</a>
+      <a href="/record.html">記録</a>
+      <a href="/parent.html">設定</a>
+    </nav>
+  </header>
+  <main class="app-main">
+    <div class="owner-banner" id="owner"></div>
+
+    <section class="panel" id="level-panel">
+      <div class="level-head">
+        <div class="level-badge"><span class="num" id="lv-num">-</span><span class="lv">レベル</span></div>
+        <div>
+          <div class="level-name" id="lv-name">-</div>
+          <div class="level-sub" id="lv-sub">-</div>
+        </div>
+      </div>
+      <div class="xpbar"><span id="xp-fill" style="width:0%"></span></div>
+      <div class="badges" id="badges"></div>
+    </section>
+
+    <section class="panel">
+      <h2 id="today-title">今日のタスク</h2>
+      <div class="task-list" id="task-list"></div>
+    </section>
+  </main>
+
+  <div class="modal-back" id="modal" hidden>
+    <div class="modal">
+      <div class="big-emoji" id="modal-emoji">🎉</div>
+      <h3 id="modal-title"></h3>
+      <p id="modal-text"></p>
+      <button id="modal-ok">OK</button>
+    </div>
+  </div>
+
+  <script src="/js/api.js"></script>
+  <script src="/js/shared.js"></script>
+  <script src="/js/today.js"></script>
+</body>
+</html>

@@ -1,0 +1,70 @@
+let state = { children: [], selectedId: null };
+
+async function init() {
+  const { children } = await api.get('/api/children');
+  state.children = children;
+  // 一人用：先頭の子をそのまま使う。
+  state.selectedId = children[0]?.id;
+  await refresh();
+}
+
+async function refresh() {
+  const stats = await api.get(`/api/stats?childId=${state.selectedId}`);
+  document.getElementById('s-streak').innerHTML = `${stats.streak}<span class="u">日</span>`;
+  document.getElementById('s-week').textContent = `${stats.week.count}`;
+  document.getElementById('s-month').textContent = `${stats.month.points}`;
+  renderBars(stats.last7);
+  renderCalendar(stats);
+}
+
+function renderBars(last7) {
+  const el = document.getElementById('bars');
+  el.innerHTML = '';
+  const max = Math.max(1, ...last7.map((d) => d.points));
+  for (const d of last7) {
+    const dow = WEEKDAY_JP[dayOfWeekJp(d.date)];
+    const col = document.createElement('div');
+    col.className = 'bar-col';
+    const h = Math.round((d.points / max) * 100);
+    col.innerHTML = `
+      <div class="bar-val">${d.points || ''}</div>
+      <div class="bar" style="height:${d.points ? Math.max(h, 5) : 0}%"></div>
+      <div class="bar-label">${dow}</div>`;
+    el.appendChild(col);
+  }
+}
+
+function dayOfWeekJp(dateStr) {
+  const [y, m, d] = dateStr.split('-').map(Number);
+  return new Date(y, m - 1, d).getDay();
+}
+
+function renderCalendar(stats) {
+  const [y, m] = stats.today.split('-').map(Number);
+  document.getElementById('cal-title').textContent = `${y}年 ${m}月のカレンダー`;
+  const el = document.getElementById('cal');
+  el.innerHTML = '';
+  for (const w of WEEKDAY_JP) {
+    const h = document.createElement('div');
+    h.className = 'dow';
+    h.textContent = w;
+    el.appendChild(h);
+  }
+  const first = new Date(y, m - 1, 1).getDay();
+  const daysInMonth = new Date(y, m, 0).getDate();
+  for (let i = 0; i < first; i += 1) {
+    const c = document.createElement('div');
+    c.className = 'cell empty';
+    el.appendChild(c);
+  }
+  for (let day = 1; day <= daysInMonth; day += 1) {
+    const ds = `${y}-${String(m).padStart(2, '0')}-${String(day).padStart(2, '0')}`;
+    const info = stats.byDate[ds];
+    const cell = document.createElement('div');
+    cell.className = 'cell' + (info ? ' done' : '') + (ds === stats.today ? ' today' : '');
+    cell.innerHTML = `<div>${day}</div>` + (info ? `<div class="pt">${info.points}</div>` : '');
+    el.appendChild(cell);
+  }
+}
+
+init().catch((err) => console.error(err));
