@@ -1,20 +1,19 @@
-let state = {
+import { getChildren, getConfig, getToday, addCompletion, removeCompletion } from './store.js';
+import { levelProgress } from './lib/levels.js';
+
+const state = {
   children: [],
   config: null,
   selectedId: null,
 };
 
-async function init() {
-  const [{ children }, config] = await Promise.all([
-    api.get('/api/children'),
-    api.get('/api/config'),
-  ]);
-  state.children = children;
-  state.config = config;
+function init() {
+  state.children = getChildren();
+  state.config = getConfig();
   // 一人用：先頭の子をそのまま使う。
-  state.selectedId = children[0]?.id;
+  state.selectedId = state.children[0]?.id;
   renderOwner();
-  await refresh();
+  refresh();
 }
 
 // ヘッダー下に「だれのページか」を名前で表示する。
@@ -53,9 +52,9 @@ function renderLevel() {
   }
 }
 
-async function refresh() {
+function refresh() {
   renderLevel();
-  const { items } = await api.get(`/api/tasks/today?childId=${state.selectedId}`);
+  const { items } = getToday(state.selectedId);
   const list = document.getElementById('task-list');
   list.innerHTML = '';
   if (items.length === 0) {
@@ -79,30 +78,25 @@ function taskCard(item) {
       <div class="t-points">+${item.points} ポイント</div>
     </div>
     <div class="t-check">✓</div>`;
-  card.onclick = () => toggle(item, card);
+  card.onclick = () => toggle(item);
   return card;
 }
 
-let busy = false;
-async function toggle(item, card) {
-  if (busy) return;
-  busy = true;
+function toggle(item) {
   try {
     if (!item.done) {
-      const res = await api.post('/api/completions', { taskId: item.id, childId: state.selectedId });
+      const res = addCompletion({ taskId: item.id, childId: state.selectedId });
       updateChildInState(res.child);
-      await refresh();
+      refresh();
       celebrate(res);
     } else if (item.completionId) {
-      const res = await api.del(`/api/completions/${item.completionId}`);
+      const res = removeCompletion(item.completionId);
       updateChildInState(res.child);
-      await refresh();
+      refresh();
     }
   } catch (err) {
     console.error(err);
     alert('エラーが発生しました。もう一度試してください。');
-  } finally {
-    busy = false;
   }
 }
 
@@ -113,7 +107,6 @@ function updateChildInState(child) {
 }
 
 function celebrate(res) {
-  const modal = document.getElementById('modal');
   if (res.leveledUp) {
     const prog = levelProgress(res.child.xp, state.config.levels);
     showModal('🎊', `レベルアップ！ レベル${prog.level}`, `称号「${prog.name}」に到達！`);
@@ -131,7 +124,9 @@ function showModal(emoji, title, text) {
 }
 document.getElementById('modal-ok').onclick = () => { document.getElementById('modal').hidden = true; };
 
-init().catch((err) => {
+try {
+  init();
+} catch (err) {
   console.error(err);
   document.getElementById('task-list').innerHTML = '<div class="empty">読み込みに失敗しました</div>';
-});
+}

@@ -3,16 +3,20 @@
 <head>
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1" />
+  <meta name="theme-color" content="#6366f1" />
   <title>お手伝いクエスト</title>
-  <link rel="stylesheet" href="/css/main.css" />
+  <link rel="stylesheet" href="./css/main.css" />
+  <link rel="manifest" href="./manifest.json" />
+  <link rel="icon" href="./icon.svg" type="image/svg+xml" />
+  <link rel="apple-touch-icon" href="./icon.svg" />
 </head>
 <body>
   <header class="app-header">
     <h1><span class="emoji">🏅</span>お手伝いクエスト</h1>
     <nav>
-      <a href="/index.html" class="active">今日</a>
-      <a href="/record.html">記録</a>
-      <a href="/parent.html">設定</a>
+      <a href="./index.html" class="active">今日</a>
+      <a href="./record.html">記録</a>
+      <a href="./parent.html">設定</a>
     </nav>
   </header>
   <main class="app-main">
@@ -45,8 +49,9 @@
     </div>
   </div>
 
-  <script src="/js/api.js"></script>
-  <script src="/js/shared.js"></script>
-  <script src="/js/today.js"></script>
+  <script type="module" src="./js/today.js"></script>
+  <script>
+    if ('serviceWorker' in navigator) navigator.serviceWorker.register('./sw.js');
+  </script>
 </body>
 </html>

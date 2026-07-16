@@ -1,18 +1,21 @@
-let state = { children: [], tasks: [] };
+import {
+  getChildren, getTasks, addTask, deleteTask, updateChild,
+  exportData, importData, WEEKDAY_JP,
+} from './store.js';
+import { todayStr } from './lib/dates.js';
 
-async function init() {
-  await load();
+const state = { children: [], tasks: [] };
+
+function init() {
+  load();
   buildDayPicker();
   wireForm();
+  wireBackup();
 }
 
-async function load() {
-  const [{ children }, { tasks }] = await Promise.all([
-    api.get('/api/children'),
-    api.get('/api/tasks'),
-  ]);
-  state.children = children;
-  state.tasks = tasks;
+function load() {
+  state.children = getChildren();
+  state.tasks = getTasks();
   renderTaskLists();
   renderChildEdit();
 }
@@ -34,10 +37,10 @@ function wireForm() {
     document.getElementById('days-field').hidden = isSpot;
     document.getElementById('date-field').hidden = !isSpot;
   };
-  document.getElementById('f-add').onclick = addTask;
+  document.getElementById('f-add').onclick = handleAddTask;
 }
 
-async function addTask() {
+function handleAddTask() {
   const kind = document.getElementById('f-kind').value;
   const body = {
     childId: 'all',
@@ -53,16 +56,15 @@ async function addTask() {
   }
   const msg = document.getElementById('f-msg');
   try {
-    await api.post('/api/tasks', body);
+    addTask(body);
     msg.textContent = '✅ 追加しました';
     document.getElementById('f-title').value = '';
     document.getElementById('f-icon').value = '';
-    await load();
+    load();
   } catch (err) {
     msg.textContent = '⚠️ ' + err.message;
   }
 }
-
 
 function renderTaskLists() {
   const routines = state.tasks.filter((t) => t.kind === 'routine');
@@ -91,10 +93,10 @@ function taskRow(t) {
   const del = document.createElement('button');
   del.className = 'btn danger small';
   del.textContent = '削除';
-  del.onclick = async () => {
+  del.onclick = () => {
     if (!confirm(`「${t.title}」を削除しますか？`)) return;
-    await api.del(`/api/tasks/${t.id}`);
-    await load();
+    deleteTask(t.id);
+    load();
   };
   row.appendChild(del);
   return row;
@@ -112,16 +114,58 @@ function renderChildEdit() {
     const save = document.createElement('button');
     save.className = 'btn small';
     save.textContent = '保存';
-    save.onclick = async () => {
-      await api.put(`/api/children/${c.id}`, {
+    save.onclick = () => {
+      updateChild(c.id, {
         name: row.querySelector('.name-in').value,
         color: row.querySelector('.color-in').value,
       });
-      await load();
+      load();
     };
     row.appendChild(save);
     el.appendChild(row);
   }
 }
 
-init().catch((err) => console.error(err));
+// ---- バックアップ ----
+
+function wireBackup() {
+  document.getElementById('backup-export').onclick = () => {
+    const data = exportData();
+    const blob = new Blob([JSON.stringify(data, null, 2)], { type: 'application/json' });
+    const a = document.createElement('a');
+    a.href = URL.createObjectURL(blob);
+    a.download = `homework-quest-backup-${todayStr()}.json`;
+    a.click();
+    URL.revokeObjectURL(a.href);
+    document.getElementById('backup-msg').textContent = '✅ 書き出しました';
+  };
+
+  const fileInput = document.getElementById('backup-file');
+  document.getElementById('backup-import').onclick = () => fileInput.click();
+  fileInput.onchange = async () => {
+    const msg = document.getElementById('backup-msg');
+    const file = fileInput.files[0];
+    if (!file) return;
+    if (!confirm('今のデータをバックアップの内容で置き換えます。よろしいですか？')) {
+      fileInput.value = '';
+      return;
+    }
+    try {
+      const text = await file.text();
+      importData(JSON.parse(text));
+      msg.textContent = '✅ 読み込みました';
+      load();
+    } catch (err) {
+      console.error(err);
+      msg.textContent = '⚠️ ' + (err.message || '読み込みに失敗しました');
+    } finally {
+      fileInput.value = '';
+    }
+  };
+}
+
+try {
+  init();
+} catch (err) {
+  console.error(err);
+}

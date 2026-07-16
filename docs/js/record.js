@@ -1,15 +1,16 @@
-let state = { children: [], selectedId: null };
+import { getChildren, getStats, WEEKDAY_JP } from './store.js';
 
-async function init() {
-  const { children } = await api.get('/api/children');
-  state.children = children;
+const state = { children: [], selectedId: null };
+
+function init() {
+  state.children = getChildren();
   // 一人用：先頭の子をそのまま使う。
-  state.selectedId = children[0]?.id;
-  await refresh();
+  state.selectedId = state.children[0]?.id;
+  refresh();
 }
 
-async function refresh() {
-  const stats = await api.get(`/api/stats?childId=${state.selectedId}`);
+function refresh() {
+  const stats = getStats(state.selectedId);
   document.getElementById('s-streak').innerHTML = `${stats.streak}<span class="u">日</span>`;
   document.getElementById('s-week').textContent = `${stats.week.count}`;
   document.getElementById('s-month').textContent = `${stats.month.points}`;
@@ -67,4 +68,8 @@ function renderCalendar(stats) {
   }
 }
 
-init().catch((err) => console.error(err));
+try {
+  init();
+} catch (err) {
+  console.error(err);
+}

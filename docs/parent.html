@@ -3,16 +3,20 @@
 <head>
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1" />
+  <meta name="theme-color" content="#6366f1" />
   <title>設定 | お手伝いクエスト</title>
-  <link rel="stylesheet" href="/css/main.css" />
+  <link rel="stylesheet" href="./css/main.css" />
+  <link rel="manifest" href="./manifest.json" />
+  <link rel="icon" href="./icon.svg" type="image/svg+xml" />
+  <link rel="apple-touch-icon" href="./icon.svg" />
 </head>
 <body>
   <header class="app-header">
     <h1><span class="emoji">⚙️</span>設定</h1>
     <nav>
-      <a href="/index.html">今日</a>
-      <a href="/record.html">記録</a>
-      <a href="/parent.html" class="active">設定</a>
+      <a href="./index.html">今日</a>
+      <a href="./record.html">記録</a>
+      <a href="./parent.html" class="active">設定</a>
     </nav>
   </header>
   <main class="app-main">
@@ -65,10 +69,25 @@
       <h2>名前・テーマカラー</h2>
       <div id="child-edit"></div>
     </section>
+
+    <section class="panel">
+      <h2>データのバックアップ</h2>
+      <p class="level-sub">
+        記録はこの端末の中に保存されています。端末を変えるときや、
+        念のための保存に「書き出し」を使ってください。
+      </p>
+      <div class="row">
+        <button class="btn" id="backup-export">書き出し（保存）</button>
+        <button class="btn" id="backup-import">読み込み（復元）</button>
+      </div>
+      <input type="file" id="backup-file" accept="application/json,.json" hidden />
+      <p id="backup-msg" class="level-sub"></p>
+    </section>
   </main>
 
-  <script src="/js/api.js"></script>
-  <script src="/js/shared.js"></script>
-  <script src="/js/parent.js"></script>
+  <script type="module" src="./js/parent.js"></script>
+  <script>
+    if ('serviceWorker' in navigator) navigator.serviceWorker.register('./sw.js');
+  </script>
 </body>
 </html>
