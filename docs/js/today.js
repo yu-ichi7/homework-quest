@@ -1,4 +1,4 @@
-import { getChildren, getConfig, getToday, addCompletion, removeCompletion } from './store.js';
+import { getChildren, getConfig, getToday, addCompletion, removeCompletion, getGoalsView } from './store.js';
 import { levelProgress } from './lib/levels.js';
 
 const state = {
@@ -52,8 +52,34 @@ function renderLevel() {
   }
 }
 
+function renderGoalSummary() {
+  const panel = document.getElementById('goal-summary-panel');
+  const goals = getGoalsView();
+  if (!panel) return;
+  if (goals.length === 0) { panel.hidden = true; return; }
+  panel.hidden = false;
+  const el = document.getElementById('goal-summary');
+  el.innerHTML = '';
+  for (const g of goals) {
+    const periodLabel = g.period === 'week' ? '今週' : '今月';
+    const row = document.createElement('div');
+    row.className = 'task-row';
+    const sub = g.kind === 'points'
+      ? `${periodLabel} ・ ${g.current}/${g.target} ポイント`
+      : `${periodLabel} ・ 自分でチェック`;
+    row.innerHTML = `
+      <div class="icon">${g.achieved ? '✅' : '🎯'}</div>
+      <div class="meta">
+        <div class="name">${g.title}</div>
+        <div class="sub">${sub}</div>
+      </div>`;
+    el.appendChild(row);
+  }
+}
+
 function refresh() {
   renderLevel();
+  renderGoalSummary();
   const { items } = getToday(state.selectedId);
   const list = document.getElementById('task-list');
   list.innerHTML = '';
@@ -113,6 +139,9 @@ function celebrate(res) {
   } else if (res.newBadges && res.newBadges.length > 0) {
     const b = res.newBadges[0];
     showModal(b.icon, 'バッジ獲得！', `「${b.name}」— ${b.desc}`);
+  } else if (res.goalsAchieved && res.goalsAchieved.length > 0) {
+    const { goal, bonus } = res.goalsAchieved[0];
+    showModal('🎯', '目標達成！', `「${goal.title}」達成！ ボーナス +${bonus} コイン`);
   }
 }
 

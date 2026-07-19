@@ -24,3 +24,33 @@ export function addDays(dateStr, delta) {
   dt.setDate(dt.getDate() + delta);
   return toDateStr(dt);
 }
+
+// 月キー（YYYY-MM）。目標がどの月のものかを表す。
+export function monthKey(dateStr) {
+  return dateStr.slice(0, 7);
+}
+
+// 月曜始まりの週の、開始日（月曜）・終了日（日曜）を返す。
+export function weekRange(dateStr) {
+  const dow = dayOfWeek(dateStr); // 0=日..6=土
+  const backToMonday = (dow + 6) % 7; // 月曜まで戻る日数
+  const start = addDays(dateStr, -backToMonday);
+  const end = addDays(start, 6);
+  return { start, end };
+}
+
+// 週キー（月曜始まり、ISO風 YYYY-Www）。同じ週の全日付で同じ値になる。
+export function weekKey(dateStr) {
+  const { start } = weekRange(dateStr);
+  // その週の木曜が属する年をISO年として採用する。
+  const thursday = addDays(start, 3);
+  const isoYear = Number(thursday.slice(0, 4));
+  // isoYear の 1/4 を含む週の月曜を第1週の起点にする。
+  const jan4 = `${isoYear}-01-04`;
+  const firstMonday = weekRange(jan4).start;
+  const days = Math.round(
+    (new Date(start) - new Date(firstMonday)) / (24 * 60 * 60 * 1000),
+  );
+  const week = Math.floor(days / 7) + 1;
+  return `${isoYear}-W${String(week).padStart(2, '0')}`;
+}

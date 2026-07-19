@@ -1,6 +1,71 @@
 // 初回起動時にシードするデフォルトデータ。data/*.json が無ければ投入する。
 
+// RPG（冒険）の既定パラメータ。すべてここで調整できる。
+// 盤面は「エリアを一列に並べたマップ」。position は先頭からの総マス数。
+// chests/events の tile はエリア内のローカル番号（0起点）。
+// sprite はアイテムの見た目（game.js の SPRITES 名）。effect は装備効果。
+export const DEFAULT_GAME = {
+  moveCost: 5,            // 1マス進むのに必要なコイン
+  goalBonus: { week: 20, month: 60 }, // 目標達成のボーナスコイン
+  areas: [
+    {
+      id: 'plains', name: 'はじまりの草原', theme: 'grass', length: 8,
+      chests: [
+        { tile: 3, reward: { coins: 15 } },
+        { tile: 6, reward: { item: 'boots-swift' } },
+      ],
+      events: [
+        { tile: 1, text: '道ばたのネコがついてきた。' },
+        { tile: 5, text: '小川のせせらぎで少し休んだ。' },
+      ],
+    },
+    {
+      id: 'forest', name: 'ひかりの森', theme: 'forest', length: 10,
+      chests: [
+        { tile: 2, reward: { coins: 20 } },
+        { tile: 5, reward: { item: 'armor-leather' } },
+        { tile: 8, reward: { coins: 30 } },
+      ],
+      events: [
+        { tile: 4, text: '木もれ日がきらきらしている。' },
+        { tile: 7, text: 'フクロウが道をおしえてくれた。' },
+      ],
+    },
+    {
+      id: 'castle', name: 'そらの城', theme: 'sky', length: 12,
+      chests: [
+        { tile: 3, reward: { coins: 30 } },
+        { tile: 7, reward: { item: 'sword-iron' } },
+        { tile: 11, reward: { coins: 50 } },
+      ],
+      events: [
+        { tile: 2, text: '雲のかいだんがのびている。' },
+        { tile: 9, text: '風がつよい。あと少しで頂上だ。' },
+      ],
+    },
+  ],
+  shop: [
+    { id: 'sword-wood', name: '木のつるぎ', slot: 'weapon', cost: 30, sprite: 'swordWood', desc: 'かけだし冒険者の相棒。' },
+    { id: 'sword-iron', name: '鉄のつるぎ', slot: 'weapon', cost: 90, sprite: 'swordIron', desc: 'ずっしり頼れる一振り。' },
+    { id: 'armor-leather', name: '革のよろい', slot: 'armor', cost: 50, sprite: 'armorLeather', effect: { chestBonus: 2 }, desc: '宝箱のコインが少し増える。' },
+    { id: 'armor-plate', name: '鋼のよろい', slot: 'armor', cost: 140, sprite: 'armorPlate', effect: { chestBonus: 4 }, desc: '宝箱のコインがぐっと増える。' },
+    { id: 'boots-swift', name: 'はやあしのくつ', slot: 'boots', cost: 40, sprite: 'bootsSwift', effect: { moveCostDelta: -1 }, desc: '移動コストが 1 へる。' },
+    { id: 'boots-wind', name: '風のブーツ', slot: 'boots', cost: 120, sprite: 'bootsWind', effect: { moveCostDelta: -2 }, desc: '移動コストが 2 へる。' },
+  ],
+};
+
+export const DEFAULT_GAME_STATE = {
+  coinsEarned: 0,
+  coinsSpent: 0,
+  position: 0,
+  openedChests: [],   // 開けた宝箱の tileId（"areaId:tile"）
+  inventory: [],      // 所持アイテム id
+  equipped: { weapon: null, armor: null, boots: null },
+};
+
 export const DEFAULT_CONFIG = {
+  game: DEFAULT_GAME,
+  goalDefaults: { week: 60, month: 240 },
   levels: [
     { level: 1, minXp: 0, name: '駆け出し' },
     { level: 2, minXp: 30, name: '見習い' },

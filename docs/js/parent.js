@@ -1,23 +1,27 @@
 import {
   getChildren, getTasks, addTask, deleteTask, updateChild,
   exportData, importData, WEEKDAY_JP,
+  getGoalsView, addGoal, deleteGoal,
 } from './store.js';
 import { todayStr } from './lib/dates.js';
 
-const state = { children: [], tasks: [] };
+const state = { children: [], tasks: [], goals: [] };
 
 function init() {
   load();
   buildDayPicker();
   wireForm();
+  wireGoalForm();
   wireBackup();
 }
 
 function load() {
   state.children = getChildren();
   state.tasks = getTasks();
+  state.goals = getGoalsView();
   renderTaskLists();
   renderChildEdit();
+  renderGoalList();
 }
 
 function buildDayPicker() {
@@ -122,6 +126,63 @@ function renderChildEdit() {
       load();
     };
     row.appendChild(save);
+    el.appendChild(row);
+  }
+}
+
+// ---- 目標（週 / 月） ----
+
+function wireGoalForm() {
+  const kind = document.getElementById('g-kind');
+  kind.onchange = () => {
+    document.getElementById('g-target-field').hidden = kind.value === 'freetext';
+  };
+  document.getElementById('g-add').onclick = handleAddGoal;
+}
+
+function handleAddGoal() {
+  const body = {
+    title: document.getElementById('g-title').value,
+    period: document.getElementById('g-period').value,
+    kind: document.getElementById('g-kind').value,
+    target: document.getElementById('g-target').value,
+  };
+  const msg = document.getElementById('g-msg');
+  try {
+    addGoal(body);
+    msg.textContent = '✅ 追加しました';
+    document.getElementById('g-title').value = '';
+    load();
+  } catch (err) {
+    msg.textContent = '⚠️ ' + err.message;
+  }
+}
+
+function renderGoalList() {
+  const el = document.getElementById('goal-list');
+  el.innerHTML = state.goals.length ? '' : '<div class="empty">今の目標はまだありません</div>';
+  for (const g of state.goals) {
+    const row = document.createElement('div');
+    row.className = 'task-row';
+    const periodLabel = g.period === 'week' ? '今週' : '今月';
+    const sub = g.kind === 'points'
+      ? `${periodLabel} ・ ${g.current}/${g.target} ポイント`
+      : `${periodLabel} ・ 自分でチェック`;
+    row.innerHTML = `
+      <div class="icon">${g.achieved ? '✅' : '🎯'}</div>
+      <div class="meta">
+        <div class="name">${g.title}</div>
+        <div class="sub">${sub}</div>
+      </div>`;
+    const del = document.createElement('button');
+    del.className = 'btn danger small';
+    del.textContent = '削除';
+    del.onclick = () => {
+      if (!confirm(`「${g.title}」を削除しますか？`)) return;
+      deleteGoal(g.id);
+      load();
+    };
+    row.appendChild(del);
     el.appendChild(row);
   }
 }

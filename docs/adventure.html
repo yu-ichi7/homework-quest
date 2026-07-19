@@ -1,0 +1,67 @@
+<!doctype html>
+<html lang="ja">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1" />
+  <meta name="theme-color" content="#6366f1" />
+  <title>冒険 | お手伝いクエスト</title>
+  <link rel="stylesheet" href="./css/main.css" />
+  <link rel="manifest" href="./manifest.json" />
+  <link rel="icon" href="./icon.svg" type="image/svg+xml" />
+  <link rel="apple-touch-icon" href="./icon.svg" />
+</head>
+<body>
+  <header class="app-header">
+    <h1><span class="emoji">🗺️</span>冒険</h1>
+    <nav>
+      <a href="./index.html">今日</a>
+      <a href="./record.html">記録</a>
+      <a href="./adventure.html" class="active">冒険</a>
+      <a href="./parent.html">設定</a>
+    </nav>
+  </header>
+  <main class="app-main">
+
+    <section class="panel">
+      <div class="coin-row">
+        <div class="coin-badge"><span class="emoji">🪙</span><span id="coin-balance">-</span></div>
+        <div class="area-name" id="area-name">-</div>
+      </div>
+      <div class="xpbar area-bar"><span id="area-fill" style="width:0%"></span></div>
+      <p class="level-sub" id="area-sub"></p>
+    </section>
+
+    <section class="panel">
+      <div class="retro-frame">
+        <canvas id="map-canvas" width="320" height="120"></canvas>
+      </div>
+      <button class="btn" id="advance-btn" style="width:100%; margin-top:12px">すすむ（🪙 <span id="move-cost">-</span>）</button>
+      <p id="move-msg" class="level-sub"></p>
+    </section>
+
+    <section class="panel">
+      <h2>そうび</h2>
+      <div class="equip-row" id="equip-row"></div>
+    </section>
+
+    <section class="panel">
+      <h2>おみせ</h2>
+      <div id="shop-list"></div>
+    </section>
+  </main>
+
+  <div class="modal-back" id="modal" hidden>
+    <div class="modal">
+      <div class="big-emoji" id="modal-emoji">🎉</div>
+      <h3 id="modal-title"></h3>
+      <p id="modal-text"></p>
+      <button id="modal-ok">OK</button>
+    </div>
+  </div>
+
+  <script type="module" src="./js/adventure.js"></script>
+  <script>
+    if ('serviceWorker' in navigator) navigator.serviceWorker.register('./sw.js');
+  </script>
+</body>
+</html>
