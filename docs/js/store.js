@@ -13,6 +13,7 @@ import {
   balance, locate, totalTiles, effectiveMoveCost,
   applyMove, buyItem, equipItem,
 } from './lib/game.js';
+import { createPet, applyDailyDecay, feed, play, checkEvolution, SPECIES } from './lib/pet.js';
 
 export const WEEKDAY_JP = ['日', '月', '火', '水', '木', '金', '土'];
 
@@ -32,15 +33,18 @@ function seed() {
     tasks: DEFAULT_TASKS.map((t) => ({ ...t, createdAt: now })),
     completions: [],
     game: { ...DEFAULT_GAME_STATE, equipped: { ...DEFAULT_GAME_STATE.equipped } },
+    pet: null,
+    petAlbum: [],
     config: DEFAULT_CONFIG,
   };
 }
 
-// 旧バージョンのデータに、ゲーム欄を後付けする（非破壊マイグレーション）。
+// 旧バージョンのデータに、ゲーム・ペット欄を後付けする（非破壊マイグレーション）。
 function ensureShape(data) {
   let changed = false;
   if (!data.config) { data.config = DEFAULT_CONFIG; changed = true; }
   if (!data.config.game) { data.config.game = DEFAULT_CONFIG.game; changed = true; }
+  if (!data.config.pet) { data.config.pet = DEFAULT_CONFIG.pet; changed = true; }
 
   if (!data.game) {
     // これまでの達成ぶんを、冒険の初期コインとして引き継ぐ。
@@ -61,18 +65,33 @@ function ensureShape(data) {
     if (!data.game.equipped) { data.game.equipped = { ...DEFAULT_GAME_STATE.equipped }; changed = true; }
   }
 
+  if (data.pet === undefined) { data.pet = null; changed = true; }
+  if (!Array.isArray(data.petAlbum)) { data.petAlbum = []; changed = true; }
+
   if (data.version !== DATA_VERSION) { data.version = DATA_VERSION; changed = true; }
   return { data, changed };
 }
 
+// 前回読み込み時からの経過日数ぶん、ペットの状態を減衰させる。
+function tickPet(data, today) {
+  if (!data.pet) return false;
+  const before = data.pet;
+  const after = applyDailyDecay(before, today, data.config.pet);
+  if (after === before) return false;
+  data.pet = after;
+  return true;
+}
+
 function load() {
+  const today = todayStr();
   try {
     const text = localStorage.getItem(KEY);
     if (text) {
       const parsed = JSON.parse(text);
       if (parsed && Array.isArray(parsed.children)) {
         const { data, changed } = ensureShape(parsed);
-        if (changed) save(data);
+        const ticked = tickPet(data, today);
+        if (changed || ticked) save(data);
         return data;
       }
     }
@@ -261,6 +280,67 @@ export function equip(itemId) {
   return data.game;
 }
 
+// ---- ペット（育成） ----
+
+export function getPetView() {
+  const data = load();
+  return {
+    balance: balance(data.game),
+    pet: data.pet,
+    album: data.petAlbum,
+    species: SPECIES,
+    feedCost: data.config.pet.feedCost,
+    careToEvolve: data.config.pet.careToEvolve,
+  };
+}
+
+export function adoptPet(speciesId) {
+  const data = load();
+  if (data.pet) throw new Error('すでにペットを育てています');
+  if (!SPECIES.some((s) => s.id === speciesId)) throw new Error('species not found');
+  data.pet = createPet(speciesId, todayStr());
+  save(data);
+  return data.pet;
+}
+
+export function feedPet() {
+  const data = load();
+  if (!data.pet) return { ok: false, reason: 'no-pet' };
+  const cost = data.config.pet.feedCost;
+  if (balance(data.game) < cost) return { ok: false, reason: 'not-enough', cost };
+  const { pet: fed, counted } = feed(data.pet);
+  if (!counted) return { ok: false, reason: 'full' };
+  data.game.coinsSpent = (data.game.coinsSpent || 0) + cost;
+  const { pet: evolvedPet, evolved } = checkEvolution(fed, data.config.pet);
+  data.pet = evolvedPet;
+  save(data);
+  return { ok: true, pet: data.pet, evolved };
+}
+
+export function playPet() {
+  const data = load();
+  if (!data.pet) return { ok: false, reason: 'no-pet' };
+  const { pet: played, counted } = play(data.pet);
+  if (!counted) return { ok: false, reason: 'full' };
+  const { pet: evolvedPet, evolved } = checkEvolution(played, data.config.pet);
+  data.pet = evolvedPet;
+  save(data);
+  return { ok: true, pet: data.pet, evolved };
+}
+
+export function graduatePet() {
+  const data = load();
+  if (!data.pet || data.pet.stage < 2) throw new Error('まだ卒業できません');
+  data.petAlbum.push({
+    species: data.pet.species,
+    form: data.pet.form,
+    matured: new Date().toISOString(),
+  });
+  data.pet = null;
+  save(data);
+  return { album: data.petAlbum };
+}
+
 // ---- 集計（記録ページ用） ----
 
 export function getStats(childId, today = todayStr()) {
@@ -322,6 +402,8 @@ export function importData(obj) {
     tasks: obj.tasks,
     completions: obj.completions,
     game: obj.game,
+    pet: obj.pet ?? null,
+    petAlbum: Array.isArray(obj.petAlbum) ? obj.petAlbum : [],
     config: obj.config && Array.isArray(obj.config.levels) ? obj.config : DEFAULT_CONFIG,
   };
   const { data } = ensureShape(base);

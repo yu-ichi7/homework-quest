@@ -1,5 +1,5 @@
 import { getGameView, advance, buy, equip } from './store.js';
-import { tileInfo, spriteToCells } from './lib/game.js';
+import { tileInfo, spriteToCells, idleOffset } from './lib/game.js';
 
 const THEME = {
   grass: { sky: '#bee7ff', ground: '#3aa655', ground2: '#34974c' },
@@ -10,14 +10,34 @@ const THEME = {
 const VISIBLE_TILES = 8;
 const CELL = 4;
 
+let currentView = null;
+let rafId = null;
+
 function init() {
   document.getElementById('advance-btn').onclick = handleAdvance;
   document.getElementById('modal-ok').onclick = () => { document.getElementById('modal').hidden = true; };
+  document.addEventListener('game-tab-changed', (e) => {
+    if (e.detail.tab === 'adventure') startIdleLoop(); else stopIdleLoop();
+  });
   render();
+}
+
+// ヒーローだけ idleOffset ぶん揺らして再描画し続ける。タブ非表示中は止める。
+function loop(t) {
+  if (currentView) drawMap(currentView, t);
+  rafId = requestAnimationFrame(loop);
+}
+function startIdleLoop() {
+  if (rafId) return;
+  rafId = requestAnimationFrame(loop);
+}
+function stopIdleLoop() {
+  if (rafId) { cancelAnimationFrame(rafId); rafId = null; }
 }
 
 function render() {
   const view = getGameView();
+  currentView = view;
   document.getElementById('coin-balance').textContent = view.balance;
   document.getElementById('area-name').textContent = view.isComplete ? '🏆 ぼうけんクリア！' : view.area.name;
 
@@ -30,7 +50,7 @@ function render() {
   document.getElementById('move-cost').textContent = view.moveCost;
   document.getElementById('advance-btn').disabled = view.isComplete;
 
-  drawMap(view);
+  drawMap(view, performance.now());
   renderEquip(view);
   renderShop(view);
 }
@@ -76,13 +96,14 @@ function drawSprite(ctx, name, centerX, groundY, cellSize = CELL) {
   }
 }
 
-function drawMap(view) {
+function drawMap(view, tNow = 0) {
   const canvas = document.getElementById('map-canvas');
   const ctx = canvas.getContext('2d');
   ctx.imageSmoothingEnabled = false;
   const W = canvas.width;
   const H = canvas.height;
   const theme = THEME[view.area.theme] || THEME.grass;
+  const heroBob = idleOffset(tNow, 1, 900);
 
   ctx.fillStyle = theme.sky;
   ctx.fillRect(0, 0, W, H);
@@ -119,7 +140,7 @@ function drawMap(view) {
 
   if (view.localTile >= camera && view.localTile < camera + VISIBLE_TILES) {
     const x = (view.localTile - camera) * tileWidth + tileWidth / 2;
-    drawSprite(ctx, 'hero', x, groundY);
+    drawSprite(ctx, 'hero', x, groundY - heroBob);
   }
 }
 

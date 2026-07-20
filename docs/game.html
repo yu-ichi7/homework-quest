@@ -1,0 +1,114 @@
+<!doctype html>
+<html lang="ja">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1" />
+  <meta name="theme-color" content="#6366f1" />
+  <title>ゲーム | お手伝いクエスト</title>
+  <link rel="stylesheet" href="./css/main.css" />
+  <link rel="manifest" href="./manifest.json" />
+  <link rel="icon" href="./icon.svg" type="image/svg+xml" />
+  <link rel="apple-touch-icon" href="./icon.svg" />
+</head>
+<body>
+  <header class="app-header">
+    <h1><span class="emoji">🎮</span>ゲーム</h1>
+    <nav>
+      <a href="./index.html">今日</a>
+      <a href="./record.html">記録</a>
+      <a href="./game.html" class="active">ゲーム</a>
+      <a href="./parent.html">設定</a>
+    </nav>
+  </header>
+  <main class="app-main">
+
+    <div class="subtabs" id="subtabs">
+      <button class="subtab active" data-tab="adventure"><span class="emoji">🗺️</span>冒険</button>
+      <button class="subtab" data-tab="pet"><span class="emoji">🐾</span>ペット</button>
+    </div>
+
+    <div id="tab-adventure" class="game-tab">
+      <section class="panel">
+        <div class="coin-row">
+          <div class="coin-badge"><span class="emoji">🪙</span><span id="coin-balance">-</span></div>
+          <div class="area-name" id="area-name">-</div>
+        </div>
+        <div class="xpbar area-bar"><span id="area-fill" style="width:0%"></span></div>
+        <p class="level-sub" id="area-sub"></p>
+      </section>
+
+      <section class="panel">
+        <div class="retro-frame">
+          <canvas id="map-canvas" width="320" height="120"></canvas>
+        </div>
+        <button class="btn" id="advance-btn" style="width:100%; margin-top:12px">すすむ（🪙 <span id="move-cost">-</span>）</button>
+        <p id="move-msg" class="level-sub"></p>
+      </section>
+
+      <section class="panel">
+        <h2>そうび</h2>
+        <div class="equip-row" id="equip-row"></div>
+      </section>
+
+      <section class="panel">
+        <h2>おみせ</h2>
+        <div id="shop-list"></div>
+      </section>
+    </div>
+
+    <div id="tab-pet" class="game-tab" hidden>
+      <section class="panel" id="pet-picker-panel" hidden>
+        <h2>そだてる子をえらぶ</h2>
+        <div id="pet-picker"></div>
+      </section>
+
+      <section class="panel" id="pet-care-panel" hidden>
+        <div class="coin-row">
+          <div class="coin-badge"><span class="emoji">🪙</span><span id="pet-coin-balance">-</span></div>
+          <div class="area-name" id="pet-stage-name">-</div>
+        </div>
+        <p class="level-sub" id="pet-progress"></p>
+        <div class="retro-frame">
+          <canvas id="pet-canvas" width="160" height="160"></canvas>
+        </div>
+        <p class="level-sub" id="pet-flavor"></p>
+        <div class="field">
+          <label>おなか</label>
+          <div class="xpbar"><span id="pet-hunger-fill" style="width:0%"></span></div>
+        </div>
+        <div class="field">
+          <label>なかよし度</label>
+          <div class="xpbar"><span id="pet-happy-fill" style="width:0%"></span></div>
+        </div>
+        <div class="row">
+          <button class="btn" id="pet-feed-btn">ごはん（🪙 <span id="pet-feed-cost">-</span>）</button>
+          <button class="btn secondary" id="pet-play-btn">あそぶ</button>
+        </div>
+        <p id="pet-msg" class="level-sub"></p>
+        <button class="btn secondary" id="pet-graduate-btn" style="width:100%; margin-top:8px" hidden>そつぎょうさせる</button>
+      </section>
+
+      <section class="panel">
+        <h2>図鑑</h2>
+        <div id="pet-album"></div>
+      </section>
+    </div>
+  </main>
+
+  <div class="modal-back" id="modal" hidden>
+    <div class="modal">
+      <div class="big-emoji" id="modal-emoji">🎉</div>
+      <h3 id="modal-title"></h3>
+      <p id="modal-text"></p>
+      <button id="modal-ok">OK</button>
+    </div>
+  </div>
+
+  <script type="module" src="./js/adventure.js"></script>
+  <script type="module" src="./js/pet.js"></script>
+  <script type="module" src="./js/game-tabs.js"></script>
+  <script>
+    if ('serviceWorker' in navigator) navigator.serviceWorker.register('./sw.js');
+  </script>
+</body>
+</html>

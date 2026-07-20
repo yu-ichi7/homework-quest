@@ -156,10 +156,12 @@ export function equipItem(game, config, itemId) {
 // ---- レトロドット・スプライト ----
 // '.' は透明。その他の文字は PALETTE の色。各行は同じ幅にすること。
 
+// pet.js のペットスプライトもこのパレットを共用する（p/t/c/u/l がペット用）。
 export const PALETTE = {
   k: '#2b2b2b', h: '#7a4a24', s: '#f1c9a5', b: '#3b6fe0',
   y: '#d9a441', n: '#8a5a2b', '0': '#f5e08a', r: '#e0483b',
   e: '#9aa4b2', w: '#ffffff', g: '#3aa655',
+  p: '#f4a6c6', t: '#d6789f', c: '#e8944c', u: '#7ec8e3', l: '#f2c94c',
 };
 
 export const SPRITES = {
@@ -233,9 +235,8 @@ export const SPRITES = {
   ],
 };
 
-// スプライト文字列 → 描画用セル配列 [{x,y,color}]。
-export function spriteToCells(name) {
-  const rows = SPRITES[name];
+// ドット絵の行配列 → 描画用セル配列 [{x,y,color}]。他の種族/スプライト辞書からも再利用できる。
+export function rowsToCells(rows) {
   if (!rows) return { cells: [], w: 0, h: 0 };
   const cells = [];
   rows.forEach((row, y) => {
@@ -244,4 +245,15 @@ export function spriteToCells(name) {
     });
   });
   return { cells, w: rows[0].length, h: rows.length };
+}
+
+// スプライト文字列 → 描画用セル配列 [{x,y,color}]。
+export function spriteToCells(name) {
+  return rowsToCells(SPRITES[name]);
+}
+
+// アイドルアニメーション用の上下オフセット（px）。t は performance.now() 等の経過ms。
+// 純粋関数：サイン波を丸めた小さな整数を返すだけ（呼び出し側でrAFループを回す）。
+export function idleOffset(t, amplitude = 1, periodMs = 900) {
+  return Math.round(Math.sin((t / periodMs) * Math.PI * 2) * amplitude);
 }

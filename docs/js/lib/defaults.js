@@ -53,6 +53,15 @@ export const DEFAULT_GAME = {
   ],
 };
 
+// ペット育成（たまごっち系）の既定パラメータ。
+export const DEFAULT_PET = {
+  feedCost: 5,                              // ごはん1回のコイン
+  decayPerDay: { hunger: 8, happiness: 6 }, // 経過日ごとの自然な減り
+  neglectThreshold: 30,                     // これ未満なら「放置日」扱い
+  careToEvolve: [8, 14],                    // stage0→1, stage1→2 に必要なお世話回数
+  formNeglectLimit: 1,                      // 放置日がこれ以下なら「元気」、超えたら「お疲れ気味」
+};
+
 export const DEFAULT_GAME_STATE = {
   coinsEarned: 0,
   coinsSpent: 0,
@@ -64,6 +73,7 @@ export const DEFAULT_GAME_STATE = {
 
 export const DEFAULT_CONFIG = {
   game: DEFAULT_GAME,
+  pet: DEFAULT_PET,
   levels: [
     { level: 1, minXp: 0, name: '駆け出し' },
     { level: 2, minXp: 30, name: '見習い' },
