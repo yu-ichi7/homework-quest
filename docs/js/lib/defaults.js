@@ -6,7 +6,6 @@
 // sprite はアイテムの見た目（game.js の SPRITES 名）。effect は装備効果。
 export const DEFAULT_GAME = {
   moveCost: 5,            // 1マス進むのに必要なコイン
-  goalBonus: { week: 20, month: 60 }, // 目標達成のボーナスコイン
   areas: [
     {
       id: 'plains', name: 'はじまりの草原', theme: 'grass', length: 8,
@@ -65,7 +64,6 @@ export const DEFAULT_GAME_STATE = {
 
 export const DEFAULT_CONFIG = {
   game: DEFAULT_GAME,
-  goalDefaults: { week: 60, month: 240 },
   levels: [
     { level: 1, minXp: 0, name: '駆け出し' },
     { level: 2, minXp: 30, name: '見習い' },

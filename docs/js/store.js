@@ -8,8 +8,7 @@ import {
 import { recomputeChild } from './lib/progress.js';
 import { expandForDay, withCompletionState } from './lib/taskExpand.js';
 import { computeStreak } from './lib/streak.js';
-import { todayStr, addDays, weekKey, monthKey } from './lib/dates.js';
-import { goalView, isGoalAchieved } from './lib/goals.js';
+import { todayStr, addDays } from './lib/dates.js';
 import {
   balance, locate, totalTiles, effectiveMoveCost,
   applyMove, buyItem, equipItem,
@@ -25,10 +24,6 @@ function uuid() {
   return 'id-' + Date.now().toString(36) + '-' + Math.random().toString(36).slice(2, 10);
 }
 
-function currentKey(period, today) {
-  return period === 'week' ? weekKey(today) : monthKey(today);
-}
-
 function seed() {
   const now = new Date().toISOString();
   return {
@@ -36,19 +31,16 @@ function seed() {
     children: DEFAULT_CHILDREN.map((c) => ({ ...c, createdAt: now })),
     tasks: DEFAULT_TASKS.map((t) => ({ ...t, createdAt: now })),
     completions: [],
-    goals: [],
     game: { ...DEFAULT_GAME_STATE, equipped: { ...DEFAULT_GAME_STATE.equipped } },
     config: DEFAULT_CONFIG,
   };
 }
 
-// 旧バージョンのデータに、目標・ゲーム欄を後付けする（非破壊マイグレーション）。
+// 旧バージョンのデータに、ゲーム欄を後付けする（非破壊マイグレーション）。
 function ensureShape(data) {
   let changed = false;
   if (!data.config) { data.config = DEFAULT_CONFIG; changed = true; }
   if (!data.config.game) { data.config.game = DEFAULT_CONFIG.game; changed = true; }
-  if (!data.config.goalDefaults) { data.config.goalDefaults = DEFAULT_CONFIG.goalDefaults; changed = true; }
-  if (!Array.isArray(data.goals)) { data.goals = []; changed = true; }
 
   if (!data.game) {
     // これまでの達成ぶんを、冒険の初期コインとして引き継ぐ。
@@ -163,8 +155,7 @@ export function getToday(childId, date = todayStr()) {
 
 // ---- 達成（チェック / 取り消し） ----
 
-// チェック時。completion 追加 → child を達成ログから再計算。
-// あわせてコイン加算・数値目標の達成ボーナスも処理する。
+// チェック時。completion 追加 → child を達成ログから再計算。あわせてコインも加算する。
 export function addCompletion({ taskId, childId, date = todayStr() }) {
   const data = load();
   const task = data.tasks.find((t) => t.id === taskId);
@@ -177,7 +168,7 @@ export function addCompletion({ taskId, childId, date = todayStr() }) {
     (c) => c.taskId === taskId && c.childId === childId && c.date === date,
   );
   if (existing) {
-    return { completion: existing, child, leveledUp: false, newBadges: [], coinsGained: 0, goalsAchieved: [] };
+    return { completion: existing, child, leveledUp: false, newBadges: [], coinsGained: 0 };
   }
 
   const completion = {
@@ -198,26 +189,13 @@ export function addCompletion({ taskId, childId, date = todayStr() }) {
   // コイン加算（消費型の獲得側）。
   data.game.coinsEarned = (data.game.coinsEarned || 0) + completion.points;
 
-  // 数値目標の達成ボーナス（未払いのみ、期間一致のもの）。
-  const goalsAchieved = [];
-  for (const g of data.goals) {
-    if (g.kind !== 'points' || g.bonusPaid) continue;
-    if (g.periodKey !== currentKey(g.period, date)) continue;
-    if (isGoalAchieved(g, data.completions)) {
-      g.bonusPaid = true;
-      const bonus = data.config.game.goalBonus?.[g.period] || 0;
-      data.game.coinsEarned += bonus;
-      goalsAchieved.push({ goal: g, bonus });
-    }
-  }
-
   save(data);
 
   const leveledUp = child.level > before.level;
   const newBadges = data.config.badges.filter(
     (b) => child.badges.includes(b.id) && !before.badges.includes(b.id),
   );
-  return { completion, child, leveledUp, newBadges, coinsGained: completion.points, goalsAchieved };
+  return { completion, child, leveledUp, newBadges, coinsGained: completion.points };
 }
 
 // チェック外し（誤タップ取り消し）。completion 削除 → child 再計算。コインも戻す。
@@ -235,68 +213,6 @@ export function removeCompletion(id) {
 
   save(data);
   return { ok: true, child };
-}
-
-// ---- 目標（週 / 月） ----
-
-export function getGoalsView(today = todayStr()) {
-  const data = load();
-  return data.goals
-    .filter((g) => g.periodKey === currentKey(g.period, today))
-    .map((g) => goalView(g, data.completions));
-}
-
-export function addGoal(body, today = todayStr()) {
-  const period = body.period === 'month' ? 'month' : 'week';
-  const kind = body.kind === 'freetext' ? 'freetext' : 'points';
-  const goal = {
-    id: uuid(),
-    period,
-    kind,
-    title: String(body.title || '').trim(),
-    target: kind === 'points' ? (Number(body.target) || 0) : null,
-    periodKey: currentKey(period, today),
-    doneManual: false,
-    bonusPaid: false,
-    createdAt: new Date().toISOString(),
-  };
-  if (!goal.title) throw new Error('目標を入力してください');
-  if (kind === 'points' && goal.target <= 0) throw new Error('目標ポイントを入力してください');
-  const data = load();
-  data.goals.push(goal);
-  save(data);
-  return goal;
-}
-
-export function deleteGoal(id) {
-  const data = load();
-  const idx = data.goals.findIndex((g) => g.id === id);
-  if (idx < 0) throw new Error('goal not found');
-  data.goals.splice(idx, 1);
-  save(data);
-}
-
-// 自由記述目標の手動チェック（トグル）。初めて達成した時だけボーナス。
-export function checkGoal(id) {
-  const data = load();
-  const g = data.goals.find((x) => x.id === id);
-  if (!g) throw new Error('goal not found');
-  if (g.kind !== 'points') {
-    let bonus = 0;
-    if (!g.doneManual) {
-      g.doneManual = true;
-      if (!g.bonusPaid) {
-        g.bonusPaid = true;
-        bonus = data.config.game.goalBonus?.[g.period] || 0;
-        data.game.coinsEarned = (data.game.coinsEarned || 0) + bonus;
-      }
-    } else {
-      g.doneManual = false;
-    }
-    save(data);
-    return { goal: g, bonus };
-  }
-  return { goal: g, bonus: 0 };
 }
 
 // ---- 冒険（RPG） ----
@@ -405,7 +321,6 @@ export function importData(obj) {
     children: obj.children,
     tasks: obj.tasks,
     completions: obj.completions,
-    goals: Array.isArray(obj.goals) ? obj.goals : [],
     game: obj.game,
     config: obj.config && Array.isArray(obj.config.levels) ? obj.config : DEFAULT_CONFIG,
   };

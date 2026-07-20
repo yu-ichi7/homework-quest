@@ -1,4 +1,4 @@
-import { getChildren, getStats, getGoalsView, checkGoal, WEEKDAY_JP } from './store.js';
+import { getChildren, getStats, WEEKDAY_JP } from './store.js';
 
 const state = { children: [], selectedId: null };
 
@@ -16,40 +16,6 @@ function refresh() {
   document.getElementById('s-month').textContent = `${stats.month.points}`;
   renderBars(stats.last7);
   renderCalendar(stats);
-  renderGoals();
-}
-
-function renderGoals() {
-  const el = document.getElementById('goal-progress');
-  const goals = getGoalsView();
-  el.innerHTML = goals.length ? '' : '<div class="empty">今の目標はまだありません。「設定」から追加できます。</div>';
-  for (const g of goals) {
-    const row = document.createElement('div');
-    row.className = 'task-row';
-    const periodLabel = g.period === 'week' ? '今週' : '今月';
-    if (g.kind === 'points') {
-      row.innerHTML = `
-        <div class="icon">${g.achieved ? '✅' : '🎯'}</div>
-        <div class="meta">
-          <div class="name">${g.title}</div>
-          <div class="sub">${periodLabel} ・ ${g.current}/${g.target} ポイント</div>
-          <div class="xpbar" style="margin-top:6px"><span style="width:${Math.round(g.ratio * 100)}%"></span></div>
-        </div>`;
-    } else {
-      row.innerHTML = `
-        <div class="icon">${g.achieved ? '✅' : '🎯'}</div>
-        <div class="meta">
-          <div class="name">${g.title}</div>
-          <div class="sub">${periodLabel} ・ 自分でチェック</div>
-        </div>`;
-      const btn = document.createElement('button');
-      btn.className = 'btn small';
-      btn.textContent = g.achieved ? 'できた！' : 'まだ';
-      btn.onclick = () => { checkGoal(g.id); refresh(); };
-      row.appendChild(btn);
-    }
-    el.appendChild(row);
-  }
 }
 
 function renderBars(last7) {
