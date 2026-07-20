@@ -5,9 +5,9 @@ import { rowsToCells } from './game.js';
 export const STAGE_NAMES = ['あかちゃん', '少年', '成体'];
 
 export const SPECIES = [
-  { id: 'axolotl', name: 'ウーパールーパーっぽい子', spriteBase: 'axolotl' },
-  { id: 'cat', name: 'ネコっぽい子', spriteBase: 'cat' },
-  { id: 'bird', name: 'トリっぽい子', spriteBase: 'bird' },
+  { id: 'axolotl', name: 'ピンク', spriteBase: 'axolotl' },
+  { id: 'cat', name: 'オレンジ', spriteBase: 'cat' },
+  { id: 'bird', name: 'あお', spriteBase: 'bird' },
 ];
 
 // ---- ドット絵（あかちゃん / 少年・成体は「元気」「お疲れ気味」の2分岐） ----
