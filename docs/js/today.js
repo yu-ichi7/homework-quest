@@ -84,35 +84,71 @@ function streakHtml(item) {
 }
 
 function taskCard(item) {
+  const multi = item.targetCount > 1;
   const card = document.createElement('div');
   card.className = 'task-card' + (item.done ? ' done' : '');
+
+  // チェック丸：満杯で✓、回数タスクで途中なら「2/3」を小さく表示。
+  const checkInner = item.done ? '✓' : (multi ? `${item.doneCount}/${item.targetCount}` : '');
+  const pointsLabel = multi
+    ? `+${item.points} ポイント ×${item.targetCount}回`
+    : `+${item.points} ポイント`;
+
   card.innerHTML = `
     <div class="t-icon">${item.icon || '⭐'}</div>
     <div class="t-body">
       <div class="t-title">${item.title}</div>
-      <div class="t-points">+${item.points} ポイント</div>
+      <div class="t-points">${pointsLabel}</div>
       ${streakHtml(item)}
     </div>
-    <div class="t-check">✓</div>`;
+    <button class="t-history" title="履歴を見る">📈</button>
+    ${multi && item.doneCount > 0 && !item.done ? '<button class="t-undo" title="1回もどす">−</button>' : ''}
+    ${multi && item.done ? '<button class="t-undo" title="1回もどす">−</button>' : ''}
+    <div class="t-check${multi && !item.done ? ' count' : ''}">${checkInner}</div>`;
+
+  card.querySelector('.t-history').onclick = (e) => {
+    e.stopPropagation();
+    location.href = `./task.html?id=${encodeURIComponent(item.id)}`;
+  };
+  const undoBtn = card.querySelector('.t-undo');
+  if (undoBtn) {
+    undoBtn.onclick = (e) => { e.stopPropagation(); undoOne(item); };
+  }
   card.onclick = () => toggle(item);
   return card;
 }
 
 function toggle(item) {
   try {
-    if (!item.done) {
+    const target = item.targetCount || 1;
+    if (item.doneCount < target) {
+      // まだ回数が残っている → ＋1
       const res = addCompletion({ taskId: item.id, childId: state.selectedId });
       updateChildInState(res.child);
       refresh();
       celebrate(res);
-    } else if (item.completionId) {
-      const res = removeCompletion(item.completionId);
+    } else if (target === 1 && item.lastCompletionId) {
+      // 回数1のタスクは、満杯タップで取り消し（従来どおり）
+      const res = removeCompletion(item.lastCompletionId);
       updateChildInState(res.child);
       refresh();
     }
+    // 回数タスクが満杯のときは、カードタップでは何もしない（「−」で戻す）
   } catch (err) {
     console.error(err);
     alert('エラーが発生しました。もう一度試してください。');
+  }
+}
+
+// 回数タスクを1回ぶん戻す。
+function undoOne(item) {
+  try {
+    if (!item.lastCompletionId) return;
+    const res = removeCompletion(item.lastCompletionId);
+    updateChildInState(res.child);
+    refresh();
+  } catch (err) {
+    console.error(err);
   }
 }
 

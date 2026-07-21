@@ -1,0 +1,43 @@
+<!doctype html>
+<html lang="ja">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1" />
+  <meta name="theme-color" content="#6366f1" />
+  <title>タスクの履歴 | お手伝いクエスト</title>
+  <link rel="stylesheet" href="./css/main.css" />
+  <link rel="manifest" href="./manifest.json" />
+  <link rel="icon" href="./icon.svg" type="image/svg+xml" />
+  <link rel="apple-touch-icon" href="./icon.svg" />
+</head>
+<body>
+  <header class="app-header">
+    <h1><a href="#" id="back-link" class="back">←</a> <span class="emoji" id="t-icon">📈</span><span id="t-name">タスクの履歴</span></h1>
+    <nav>
+      <a href="./index.html">今日</a>
+      <a href="./record.html">記録</a>
+      <a href="./game.html">ゲーム</a>
+      <a href="./parent.html">設定</a>
+    </nav>
+  </header>
+  <main class="app-main">
+    <section class="panel">
+      <div class="stat-grid">
+        <div class="stat"><div class="n" id="s-streak">-<span class="u">日</span></div><div class="l">連続達成</div></div>
+        <div class="stat"><div class="n" id="s-total">-</div><div class="l">累計回数</div></div>
+        <div class="stat"><div class="n" id="s-target">-</div><div class="l">1日の回数</div></div>
+      </div>
+    </section>
+
+    <section class="panel">
+      <h2 id="hist-title">これまでの記録</h2>
+      <div id="heatmaps"></div>
+    </section>
+  </main>
+
+  <script type="module" src="./js/task.js"></script>
+  <script>
+    if ('serviceWorker' in navigator) navigator.serviceWorker.register('./sw.js');
+  </script>
+</body>
+</html>

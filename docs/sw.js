@@ -2,7 +2,7 @@
 // オンライン時は常にネットワークから最新を取得してキャッシュを更新し、
 // 圏外のときだけキャッシュから返す（一度開いたページはオフラインでも開ける）。
 
-const CACHE = 'homework-quest-v7';
+const CACHE = 'homework-quest-v8';
 
 self.addEventListener('install', () => {
   self.skipWaiting();

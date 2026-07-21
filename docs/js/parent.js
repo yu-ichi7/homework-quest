@@ -4,11 +4,21 @@ import {
 } from './store.js';
 import { todayStr } from './lib/dates.js';
 
-const state = { children: [], tasks: [], editingId: null };
+// アイコンパレット（勉強・お手伝い・運動・生活・趣味など）。
+const TASK_ICONS = [
+  '📚', '📖', '✏️', '📝', '🧮', '🔤', '🎒',
+  '🧹', '🧽', '🍽️', '🛁', '🗑️', '🧺', '🍚',
+  '🏃', '💪', '⚽', '🚴', '🤸', '🏊', '⚾',
+  '🦷', '🛏️', '🌅', '🐶', '🌱', '💊',
+  '🎹', '🎸', '🎨', '🎯', '⭐', '🔥',
+];
+
+const state = { children: [], tasks: [], editingId: null, icon: '📚' };
 
 function init() {
   load();
   buildDayPicker();
+  buildIconPicker();
   wireForm();
   wireBackup();
 }
@@ -30,6 +40,37 @@ function buildDayPicker() {
   });
 }
 
+function buildIconPicker() {
+  const el = document.getElementById('f-icon-pick');
+  el.innerHTML = '';
+  for (const ic of TASK_ICONS) {
+    const btn = document.createElement('button');
+    btn.type = 'button';
+    btn.className = 'icon-opt';
+    btn.textContent = ic;
+    btn.onclick = () => setIcon(ic);
+    el.appendChild(btn);
+  }
+  // 自由入力欄で打った絵文字も選択として反映する。
+  document.getElementById('f-icon').oninput = (e) => {
+    const v = [...(e.target.value || '')][0];
+    if (v) { state.icon = v; highlightIcon(); }
+  };
+  setIcon(state.icon);
+}
+
+function setIcon(ic) {
+  state.icon = ic;
+  document.getElementById('f-icon').value = '';
+  highlightIcon();
+}
+
+function highlightIcon() {
+  document.querySelectorAll('#f-icon-pick .icon-opt').forEach((b) => {
+    b.classList.toggle('active', b.textContent === state.icon);
+  });
+}
+
 function wireForm() {
   const kind = document.getElementById('f-kind');
   kind.onchange = () => {
@@ -43,11 +84,13 @@ function wireForm() {
 
 function handleSubmitTask() {
   const kind = document.getElementById('f-kind').value;
+  const freeIcon = [...(document.getElementById('f-icon').value || '')][0];
   const body = {
     childId: 'all',
     title: document.getElementById('f-title').value,
-    icon: document.getElementById('f-icon').value || '⭐',
+    icon: freeIcon || state.icon || '⭐',
     points: Number(document.getElementById('f-points').value) || 0,
+    targetCount: Number(document.getElementById('f-count').value) || 1,
     kind,
   };
   if (kind === 'routine') {
@@ -77,8 +120,9 @@ function enterEditMode(task) {
   document.getElementById('f-add').textContent = '更新する';
   document.getElementById('f-cancel').hidden = false;
   document.getElementById('f-title').value = task.title;
-  document.getElementById('f-icon').value = task.icon || '';
+  setIcon(task.icon || '📚');
   document.getElementById('f-points').value = task.points;
+  document.getElementById('f-count').value = task.targetCount || 1;
   document.getElementById('f-kind').value = task.kind;
   const isSpot = task.kind === 'spot';
   document.getElementById('days-field').hidden = isSpot;
@@ -100,8 +144,9 @@ function exitEditMode() {
   document.getElementById('f-add').textContent = '追加する';
   document.getElementById('f-cancel').hidden = true;
   document.getElementById('f-title').value = '';
-  document.getElementById('f-icon').value = '';
+  setIcon('📚');
   document.getElementById('f-points').value = 10;
+  document.getElementById('f-count').value = 1;
   document.getElementById('f-kind').value = 'routine';
   document.getElementById('days-field').hidden = false;
   document.getElementById('date-field').hidden = true;
@@ -125,15 +170,21 @@ function renderTaskLists() {
 function taskRow(t) {
   const row = document.createElement('div');
   row.className = 'task-row';
-  const sub = t.kind === 'routine'
+  const schedule = t.kind === 'routine'
     ? (t.days || []).map((d) => WEEKDAY_JP[d]).join('・')
     : t.date;
+  const countLabel = (t.targetCount || 1) > 1 ? ` ・ ×${t.targetCount}回` : '';
   row.innerHTML = `
     <div class="icon">${t.icon || '⭐'}</div>
     <div class="meta">
       <div class="name">${t.title}</div>
-      <div class="sub">${sub} ・ ${t.points}ポイント</div>
+      <div class="sub">${schedule} ・ ${t.points}ポイント${countLabel}</div>
     </div>`;
+  const hist = document.createElement('button');
+  hist.className = 'btn small secondary';
+  hist.textContent = '履歴';
+  hist.onclick = () => { location.href = `./task.html?id=${encodeURIComponent(t.id)}`; };
+  row.appendChild(hist);
   const edit = document.createElement('button');
   edit.className = 'btn small secondary';
   edit.textContent = '編集';

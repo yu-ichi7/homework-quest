@@ -144,6 +144,19 @@ body {
 .t-streak .flame-3 { font-size: 15px; color: #dc2626; background: #ffe0e0; box-shadow: 0 0 0 2px #fecaca inset; }
 .t-streak .t-total { font-size: 11px; color: var(--muted); font-weight: 700; }
 
+/* 回数タスクの進捗（チェック丸に件数） */
+.task-card .t-check.count {
+  font-size: 15px; font-weight: 800; color: var(--accent); border-color: var(--accent);
+}
+/* カード内の小さなボタン（履歴・戻す） */
+.task-card .t-history, .task-card .t-undo {
+  border: none; background: var(--bg); color: var(--ink);
+  width: 34px; height: 34px; border-radius: 10px; font-size: 16px; cursor: pointer;
+  flex: none; padding: 0;
+}
+.task-card .t-undo { font-weight: 800; font-size: 22px; line-height: 1; color: #ef4444; }
+.task-card .t-history:active, .task-card .t-undo:active { transform: scale(0.9); }
+
 .empty { text-align: center; color: var(--muted); padding: 30px 10px; font-size: 15px; }
 
 /* お祝いモーダル */
@@ -189,6 +202,15 @@ body {
 .row { display: flex; gap: 10px; align-items: center; }
 .row > * { flex: 1; }
 
+/* アイコンパレット */
+.icon-pick { display: flex; flex-wrap: wrap; gap: 6px; margin-bottom: 8px; }
+.icon-opt {
+  border: 2px solid var(--line); background: var(--card); border-radius: 10px;
+  width: 40px; height: 40px; font-size: 20px; cursor: pointer; padding: 0;
+}
+.icon-opt.active { border-color: var(--accent); background: var(--accent-soft); transform: scale(1.05); }
+.icon-free { font-size: 15px; }
+
 /* 親画面のタスク行 */
 .task-row {
   display: flex; align-items: center; gap: 10px; padding: 10px 0;
@@ -212,6 +234,19 @@ body {
 .cal .cell.done { background: var(--good-soft); color: #166534; font-weight: 800; }
 .cal .cell.today { outline: 3px solid var(--accent); }
 .cal .cell .pt { font-size: 10px; color: var(--warn); font-weight: 800; }
+
+/* タスク履歴ヒートマップ */
+.app-header h1 .back {
+  text-decoration: none; color: var(--accent); font-weight: 800; margin-right: 4px;
+}
+.hist-month { margin-bottom: 18px; }
+.hist-month-title { font-weight: 800; font-size: 14px; margin-bottom: 6px; color: var(--muted); }
+.cal .cell.scheduled { background: #eef1f6; color: #b6bdc8; }
+.cal .cell.heat-1 { background: #d6efd9; color: #166534; font-weight: 700; }
+.cal .cell.heat-2 { background: #93d9a0; color: #14532d; font-weight: 800; }
+.cal .cell.heat-3 { background: #22c55e; color: #fff; font-weight: 800; }
+.cal .cell.heat-1 .pt, .cal .cell.heat-2 .pt { color: #166534; }
+.cal .cell.heat-3 .pt { color: #eafff0; }
 
 /* 棒グラフ */
 .bars { display: flex; align-items: flex-end; gap: 8px; height: 140px; padding-top: 10px; }

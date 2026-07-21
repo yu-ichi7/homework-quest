@@ -8,7 +8,7 @@ import {
 import { recomputeChild } from './lib/progress.js';
 import { expandForDay, withCompletionState } from './lib/taskExpand.js';
 import {
-  computeStreak, taskStreak, taskTotalCount,
+  computeStreak, taskStreak, taskTotalCount, taskCountByDate,
 } from './lib/streak.js';
 import { todayStr, addDays } from './lib/dates.js';
 import {
@@ -160,6 +160,7 @@ export function addTask(body) {
     title: String(body.title || '').trim(),
     icon: body.icon || '⭐',
     points: Number(body.points) || 0,
+    targetCount: Math.max(1, Number(body.targetCount) || 1),
     kind,
     days: kind === 'routine' ? (Array.isArray(body.days) ? body.days.map(Number) : []) : undefined,
     date: kind === 'spot' ? (body.date || todayStr()) : undefined,
@@ -195,6 +196,7 @@ export function updateTask(id, body) {
   task.title = title;
   task.icon = body.icon || '⭐';
   task.points = Number(body.points) || 0;
+  task.targetCount = Math.max(1, Number(body.targetCount) || 1);
   task.kind = kind;
   if (kind === 'routine') {
     const days = Array.isArray(body.days) ? body.days.map(Number) : [];
@@ -209,17 +211,41 @@ export function updateTask(id, body) {
   return task;
 }
 
+// タスク履歴ページ用。対象タスクと、日別の達成回数マップ・炎・累計・目標をまとめて返す。
+export function getTaskHistory(taskId, today = todayStr()) {
+  const data = load();
+  const task = data.tasks.find((t) => t.id === taskId);
+  if (!task) return null;
+  return {
+    task,
+    targetCount: task.targetCount || 1,
+    countByDate: taskCountByDate(task, data.completions),
+    streak: taskStreak(task, data.completions, today),
+    total: taskTotalCount(task, data.completions),
+    today,
+  };
+}
+
 // ---- 今日のタスク ----
 
 export function getToday(childId, date = todayStr()) {
   const data = load();
   const expanded = expandForDay(data.tasks, childId, date);
   const items = withCompletionState(expanded, data.completions, childId, date);
-  // 各タスクの継続（炎カウンター）を合成する。
+  // 各タスクの回数の進捗と継続（炎カウンター）を合成する。
   const enriched = items.map((item) => {
     const task = data.tasks.find((t) => t.id === item.id);
+    const target = task?.targetCount || 1;
+    const dayComps = data.completions.filter(
+      (c) => c.taskId === item.id && c.childId === childId && c.date === date,
+    );
+    const doneCount = dayComps.length;
     return {
       ...item,
+      targetCount: target,
+      doneCount,
+      done: doneCount >= target,
+      lastCompletionId: doneCount > 0 ? dayComps[dayComps.length - 1].id : null,
       streak: task ? taskStreak(task, data.completions, date) : 0,
       total: task ? taskTotalCount(task, data.completions) : 0,
     };
@@ -237,12 +263,13 @@ export function addCompletion({ taskId, childId, date = todayStr() }) {
   const child = data.children.find((c) => c.id === childId);
   if (!child) throw new Error('child not found');
 
-  // 二重達成防止（同じ子・タスク・日付）。
-  const existing = data.completions.find(
+  // その日の目標回数（targetCount）まではくり返し達成できる。満杯なら何もしない。
+  const target = task.targetCount || 1;
+  const sameDay = data.completions.filter(
     (c) => c.taskId === taskId && c.childId === childId && c.date === date,
   );
-  if (existing) {
-    return { completion: existing, child, leveledUp: false, newBadges: [], coinsGained: 0 };
+  if (sameDay.length >= target) {
+    return { ok: false, reason: 'full', child, leveledUp: false, newBadges: [], coinsGained: 0, iceCreamsGained: 0 };
   }
 
   // アイス発行のため、追加前のこのタスクのストリークを控えておく。
@@ -283,7 +310,7 @@ export function addCompletion({ taskId, childId, date = todayStr() }) {
     (b) => child.badges.includes(b.id) && !before.badges.includes(b.id),
   );
   return {
-    completion, child, leveledUp, newBadges,
+    ok: true, completion, child, leveledUp, newBadges,
     coinsGained: completion.points, iceCreamsGained,
   };
 }
