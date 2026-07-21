@@ -1,4 +1,6 @@
-import { getChildren, getStats, WEEKDAY_JP } from './store.js';
+import {
+  getChildren, getStats, getIceCream, useIceCream, WEEKDAY_JP,
+} from './store.js';
 
 const state = { children: [], selectedId: null };
 
@@ -16,6 +18,44 @@ function refresh() {
   document.getElementById('s-month').textContent = `${stats.month.points}`;
   renderBars(stats.last7);
   renderCalendar(stats);
+  renderIceCream();
+}
+
+// ---- アイスクリームバッジ棚 ----
+
+function renderIceCream() {
+  const ice = getIceCream();
+  document.getElementById('ice-counts').textContent = `もらった ${ice.earned}こ ・ つかった ${ice.used}こ ・ いまある ${ice.available}こ`;
+
+  const shelf = document.getElementById('ice-shelf');
+  shelf.innerHTML = '';
+  for (let i = 0; i < ice.available; i += 1) {
+    const btn = document.createElement('button');
+    btn.className = 'ice-item';
+    btn.textContent = '🍦';
+    btn.title = 'タップで割れる！';
+    btn.onclick = () => breakIce(btn);
+    shelf.appendChild(btn);
+  }
+
+  const hint = document.getElementById('ice-hint');
+  hint.textContent = ice.available > 0
+    ? 'タップすると割れて使えるよ。'
+    : (ice.earned > 0 ? 'ぜんぶ使ったね！また10連続でもらえるよ。' : 'まだないよ。タスクを10連続で達成するともらえる！');
+}
+
+// 割れるアニメーションを見せてから消費する。
+let breaking = false;
+function breakIce(btn) {
+  if (breaking) return;
+  breaking = true;
+  btn.classList.add('breaking');
+  btn.disabled = true;
+  setTimeout(() => {
+    useIceCream();
+    breaking = false;
+    refresh();
+  }, 500);
 }
 
 function renderBars(last7) {

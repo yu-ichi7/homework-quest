@@ -7,7 +7,9 @@ import {
 } from './lib/defaults.js';
 import { recomputeChild } from './lib/progress.js';
 import { expandForDay, withCompletionState } from './lib/taskExpand.js';
-import { computeStreak } from './lib/streak.js';
+import {
+  computeStreak, taskStreak, taskTotalCount,
+} from './lib/streak.js';
 import { todayStr, addDays } from './lib/dates.js';
 import {
   balance, locate, totalTiles, effectiveMoveCost, heroStats,
@@ -37,6 +39,7 @@ function seed() {
     game: { ...DEFAULT_GAME_STATE, equipped: { ...DEFAULT_GAME_STATE.equipped } },
     pet: null,
     petAlbum: [],
+    iceCream: { earned: 0, used: 0 },
     config: DEFAULT_CONFIG,
   };
 }
@@ -81,6 +84,8 @@ function ensureShape(data) {
   if (data.pet === undefined) { data.pet = null; changed = true; }
   if (data.pet && data.pet.poopCount === undefined) { data.pet.poopCount = 0; changed = true; }
   if (!Array.isArray(data.petAlbum)) { data.petAlbum = []; changed = true; }
+  if (!data.iceCream || typeof data.iceCream !== 'object') { data.iceCream = { earned: 0, used: 0 }; changed = true; }
+  if (data.config.iceCreamStreak === undefined) { data.config.iceCreamStreak = DEFAULT_CONFIG.iceCreamStreak; changed = true; }
 
   if (data.version !== DATA_VERSION) { data.version = DATA_VERSION; changed = true; }
   return { data, changed };
@@ -210,7 +215,16 @@ export function getToday(childId, date = todayStr()) {
   const data = load();
   const expanded = expandForDay(data.tasks, childId, date);
   const items = withCompletionState(expanded, data.completions, childId, date);
-  return { date, childId, items };
+  // 各タスクの継続（炎カウンター）を合成する。
+  const enriched = items.map((item) => {
+    const task = data.tasks.find((t) => t.id === item.id);
+    return {
+      ...item,
+      streak: task ? taskStreak(task, data.completions, date) : 0,
+      total: task ? taskTotalCount(task, data.completions) : 0,
+    };
+  });
+  return { date, childId, items: enriched };
 }
 
 // ---- 達成（チェック / 取り消し） ----
@@ -231,6 +245,9 @@ export function addCompletion({ taskId, childId, date = todayStr() }) {
     return { completion: existing, child, leveledUp: false, newBadges: [], coinsGained: 0 };
   }
 
+  // アイス発行のため、追加前のこのタスクのストリークを控えておく。
+  const streakBefore = taskStreak(task, data.completions, date);
+
   const completion = {
     id: uuid(),
     taskId,
@@ -249,13 +266,26 @@ export function addCompletion({ taskId, childId, date = todayStr() }) {
   // コイン加算（消費型の獲得側）。
   data.game.coinsEarned = (data.game.coinsEarned || 0) + completion.points;
 
+  // 10連続に達するごとにアイスクリームバッジを発行（追加前後のストリーク差で数える）。
+  const streakAfter = taskStreak(task, data.completions, date);
+  const per = data.config.iceCreamStreak || 10;
+  const iceCreamsGained = Math.max(
+    0, Math.floor(streakAfter / per) - Math.floor(streakBefore / per),
+  );
+  if (iceCreamsGained > 0) {
+    data.iceCream.earned = (data.iceCream.earned || 0) + iceCreamsGained;
+  }
+
   save(data);
 
   const leveledUp = child.level > before.level;
   const newBadges = data.config.badges.filter(
     (b) => child.badges.includes(b.id) && !before.badges.includes(b.id),
   );
-  return { completion, child, leveledUp, newBadges, coinsGained: completion.points };
+  return {
+    completion, child, leveledUp, newBadges,
+    coinsGained: completion.points, iceCreamsGained,
+  };
 }
 
 // チェック外し（誤タップ取り消し）。completion 削除 → child 再計算。コインも戻す。
@@ -412,6 +442,26 @@ export function graduatePet() {
   return { album: data.petAlbum };
 }
 
+// ---- アイスクリームバッジ ----
+
+export function getIceCream() {
+  const data = load();
+  const earned = data.iceCream.earned || 0;
+  const used = data.iceCream.used || 0;
+  return { earned, used, available: Math.max(0, earned - used) };
+}
+
+// アイスを1つ「割って」使う（演出のみ）。
+export function useIceCream() {
+  const data = load();
+  const earned = data.iceCream.earned || 0;
+  const used = data.iceCream.used || 0;
+  if (earned - used <= 0) return { ok: false, reason: 'none', earned, used, available: 0 };
+  data.iceCream.used = used + 1;
+  save(data);
+  return { ok: true, earned, used: data.iceCream.used, available: earned - data.iceCream.used };
+}
+
 // ---- 集計（記録ページ用） ----
 
 export function getStats(childId, today = todayStr()) {
@@ -475,6 +525,7 @@ export function importData(obj) {
     game: obj.game,
     pet: obj.pet ?? null,
     petAlbum: Array.isArray(obj.petAlbum) ? obj.petAlbum : [],
+    iceCream: obj.iceCream && typeof obj.iceCream === 'object' ? obj.iceCream : { earned: 0, used: 0 },
     config: obj.config && Array.isArray(obj.config.levels) ? obj.config : DEFAULT_CONFIG,
   };
   const { data } = ensureShape(base);

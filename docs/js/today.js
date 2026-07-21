@@ -1,5 +1,6 @@
 import { getChildren, getConfig, getToday, addCompletion, removeCompletion } from './store.js';
 import { levelProgress } from './lib/levels.js';
+import { flameTier } from './lib/streak.js';
 
 const state = {
   children: [],
@@ -68,6 +69,20 @@ function refresh() {
   }
 }
 
+// タスクの継続を炎バッジ＋累計で表す。
+function streakHtml(item) {
+  if (!item.total || item.total === 0) return '';
+  const tier = flameTier(item.streak);
+  if (tier === 0) {
+    // 最近は途切れているが累計はある。
+    return `<div class="t-streak"><span class="t-total">累計 ${item.total}回</span></div>`;
+  }
+  return `<div class="t-streak">
+      <span class="flame flame-${tier}">🔥 ${item.streak}日れんぞく</span>
+      <span class="t-total">累計 ${item.total}回</span>
+    </div>`;
+}
+
 function taskCard(item) {
   const card = document.createElement('div');
   card.className = 'task-card' + (item.done ? ' done' : '');
@@ -76,6 +91,7 @@ function taskCard(item) {
     <div class="t-body">
       <div class="t-title">${item.title}</div>
       <div class="t-points">+${item.points} ポイント</div>
+      ${streakHtml(item)}
     </div>
     <div class="t-check">✓</div>`;
   card.onclick = () => toggle(item);
@@ -106,14 +122,28 @@ function updateChildInState(child) {
   if (idx >= 0) state.children[idx] = child;
 }
 
+// 起きたお祝いを順番に見せる（レベルアップ→バッジ→アイス）。
+let modalQueue = [];
 function celebrate(res) {
+  modalQueue = [];
   if (res.leveledUp) {
     const prog = levelProgress(res.child.xp, state.config.levels);
-    showModal('🎊', `レベルアップ！ レベル${prog.level}`, `称号「${prog.name}」に到達！`);
-  } else if (res.newBadges && res.newBadges.length > 0) {
-    const b = res.newBadges[0];
-    showModal(b.icon, 'バッジ獲得！', `「${b.name}」— ${b.desc}`);
+    modalQueue.push(['🎊', `レベルアップ！ レベル${prog.level}`, `称号「${prog.name}」に到達！`]);
   }
+  if (res.newBadges && res.newBadges.length > 0) {
+    const b = res.newBadges[0];
+    modalQueue.push([b.icon, 'バッジ獲得！', `「${b.name}」— ${b.desc}`]);
+  }
+  if (res.iceCreamsGained > 0) {
+    modalQueue.push(['🍦', 'アイスクリームバッジ！', `${res.iceCreamsGained}こ もらった！「記録」ページでタップして使えるよ`]);
+  }
+  showNextModal();
+}
+
+function showNextModal() {
+  const next = modalQueue.shift();
+  if (!next) return;
+  showModal(next[0], next[1], next[2]);
 }
 
 function showModal(emoji, title, text) {
@@ -122,7 +152,11 @@ function showModal(emoji, title, text) {
   document.getElementById('modal-text').textContent = text;
   document.getElementById('modal').hidden = false;
 }
-document.getElementById('modal-ok').onclick = () => { document.getElementById('modal').hidden = true; };
+document.getElementById('modal-ok').onclick = () => {
+  document.getElementById('modal').hidden = true;
+  // 続きのお祝いがあれば見せる。
+  if (modalQueue.length > 0) setTimeout(showNextModal, 150);
+};
 
 try {
   init();

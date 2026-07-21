@@ -91,6 +91,7 @@ export const DEFAULT_GAME_STATE = {
 export const DEFAULT_CONFIG = {
   game: DEFAULT_GAME,
   pet: DEFAULT_PET,
+  iceCreamStreak: 10, // このタスクが何連続に達するごとにアイスクリームバッジ1個
   levels: [
     { level: 1, minXp: 0, name: '駆け出し' },
     { level: 2, minXp: 30, name: '見習い' },
