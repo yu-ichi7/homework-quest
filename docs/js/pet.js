@@ -1,13 +1,21 @@
-import { getPetView, adoptPet, feedPet, playPet, graduatePet } from './store.js';
-import { STAGE_NAMES, spriteKeyFor, petSpriteToCells } from './lib/pet.js';
+import {
+  getPetView, adoptPet, feedPet, playPet, graduatePet, cleanPetPoop,
+} from './store.js';
+import {
+  STAGE_NAMES, spriteKeyFor, petSpriteToCells, sadMarkCells, poopCells, bodyScaleFor,
+} from './lib/pet.js';
 import { idleOffset } from './lib/game.js';
 
 let currentView = null;
 let rafId = null;
 
+// 左右にゆらゆら歩き回るための、その場だけの見た目状態（保存しない）。
+const wander = { x: 0, targetX: 0, waitUntil: 0 };
+
 function init() {
   document.getElementById('pet-feed-btn').onclick = handleFeed;
   document.getElementById('pet-play-btn').onclick = handlePlay;
+  document.getElementById('pet-clean-btn').onclick = handleClean;
   document.getElementById('pet-graduate-btn').onclick = handleGraduate;
   document.addEventListener('game-tab-changed', (e) => {
     if (e.detail.tab === 'pet') startIdleLoop(); else stopIdleLoop();
@@ -15,9 +23,12 @@ function init() {
   render();
 }
 
-// ペットだけ idleOffset ぶん揺らして再描画し続ける。タブ非表示中は止める。
+// ペットを揺らしつつ、左右にもゆっくり徘徊させて再描画し続ける。タブ非表示中は止める。
 function loop(t) {
-  if (currentView) drawPet(currentView, t);
+  if (currentView) {
+    updateWander(t);
+    drawPet(currentView, t);
+  }
   rafId = requestAnimationFrame(loop);
 }
 function startIdleLoop() {
@@ -26,6 +37,20 @@ function startIdleLoop() {
 }
 function stopIdleLoop() {
   if (rafId) { cancelAnimationFrame(rafId); rafId = null; }
+}
+
+// 目的地に少しずつ近づき、着いたらしばらく待ってから次の目的地を選ぶ。
+function updateWander(t) {
+  const canvas = document.getElementById('pet-canvas');
+  const bound = canvas.width * 0.28;
+  if (Math.abs(wander.targetX - wander.x) < 0.5) {
+    if (t > wander.waitUntil) {
+      wander.targetX = (Math.random() * 2 - 1) * bound;
+      wander.waitUntil = t + 1200 + Math.random() * 1800;
+    }
+  } else {
+    wander.x += (wander.targetX - wander.x) * 0.02;
+  }
 }
 
 function render() {
@@ -69,6 +94,7 @@ function renderPicker(view) {
 // ---- お世話 ----
 
 function flavorText(pet) {
+  if (pet.poopCount >= 3) return 'うんちがたまってる…そうじしてほしいな';
   if (pet.hunger < 30) return 'おなかすいたな…ごはんちょうだい';
   if (pet.happiness < 30) return 'ちょっとさみしいな…あそんでほしいな';
   if (pet.hunger >= 90 && pet.happiness >= 90) return 'きょうもげんき！だいすき！';
@@ -76,13 +102,15 @@ function flavorText(pet) {
 }
 
 function renderCare(view) {
-  const { pet, feedCost } = view;
+  const { pet, feedCost, cleanCost } = view;
   document.getElementById('pet-coin-balance').textContent = view.balance;
   document.getElementById('pet-stage-name').textContent = STAGE_NAMES[pet.stage];
   document.getElementById('pet-hunger-fill').style.width = `${pet.hunger}%`;
   document.getElementById('pet-happy-fill').style.width = `${pet.happiness}%`;
   document.getElementById('pet-flavor').textContent = flavorText(pet);
   document.getElementById('pet-feed-cost').textContent = feedCost;
+  document.getElementById('pet-clean-cost').textContent = cleanCost;
+  document.getElementById('pet-clean-btn').textContent = `おそうじ（🪙 ${cleanCost}）${pet.poopCount > 0 ? ` ×${pet.poopCount}` : ''}`;
 
   const progress = document.getElementById('pet-progress');
   if (pet.stage < 2) {
@@ -117,6 +145,18 @@ function handlePlay() {
   msg.textContent = '';
   render();
   if (res.evolved) celebrateEvolution(res.pet);
+}
+
+function handleClean() {
+  const res = cleanPetPoop();
+  const msg = document.getElementById('pet-msg');
+  if (!res.ok) {
+    msg.textContent = res.reason === 'not-enough' ? '🪙が足りません'
+      : res.reason === 'clean' ? 'もうきれいだよ' : '';
+    return;
+  }
+  msg.textContent = '✅ きれいになった';
+  render();
 }
 
 function celebrateEvolution(pet) {
@@ -156,15 +196,47 @@ function drawPet(view, tNow = 0) {
   ctx.clearRect(0, 0, canvas.width, canvas.height);
   if (!view.pet) return;
 
-  const key = spriteKeyFor(view.pet);
+  const pet = view.pet;
+  const key = spriteKeyFor(pet);
   const { cells, w, h } = petSpriteToCells(key);
-  const cellSize = 14;
+  const scale = bodyScaleFor(pet);
+  const cellSize = 14 * scale;
   const bob = idleOffset(tNow, 2, 1000);
-  const left = (canvas.width - w * cellSize) / 2;
+  const centerX = canvas.width / 2 + wander.x;
+  const left = centerX - (w * cellSize) / 2;
   const top = (canvas.height - h * cellSize) / 2 - bob;
   for (const c of cells) {
     ctx.fillStyle = c.color;
     ctx.fillRect(left + c.x * cellSize, top + c.y * cellSize, cellSize, cellSize);
+  }
+
+  // なかよし度が低いと、頭の横に涙マークを出す。
+  if (pet.happiness < 30) {
+    const sad = sadMarkCells();
+    const sadSize = 10;
+    const sadLeft = left + w * cellSize + 2;
+    const sadTop = top;
+    for (const c of sad.cells) {
+      ctx.fillStyle = c.color;
+      ctx.fillRect(sadLeft + c.x * sadSize, sadTop + c.y * sadSize, sadSize, sadSize);
+    }
+  }
+
+  // うんちを足もとに並べる。
+  if (pet.poopCount > 0) {
+    const poop = poopCells();
+    const poopSize = 8;
+    const poopGap = poop.w * poopSize + 6;
+    const totalWidth = poopGap * pet.poopCount - 6;
+    let px = centerX - totalWidth / 2;
+    const py = canvas.height - poop.h * poopSize - 6;
+    for (let i = 0; i < pet.poopCount; i += 1) {
+      for (const c of poop.cells) {
+        ctx.fillStyle = c.color;
+        ctx.fillRect(px + c.x * poopSize, py + c.y * poopSize, poopSize, poopSize);
+      }
+      px += poopGap;
+    }
   }
 }
 

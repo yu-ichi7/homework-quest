@@ -38,16 +38,21 @@ export function locate(position, config) {
   };
 }
 
-// あるマスに宝箱/イベントがあるか。
-export function tileInfo(area, localTile, openedChests = []) {
+// あるマスに宝箱/イベント/モンスターがあるか。
+export function tileInfo(area, localTile, openedChests = [], defeatedMonsters = []) {
   const chest = (area.chests || []).find((c) => c.tile === localTile) || null;
   const event = (area.events || []).find((e) => e.tile === localTile) || null;
+  const monster = (area.monsters || []).find((m) => m.tile === localTile) || null;
   const chestId = chest ? `${area.id}:${localTile}` : null;
+  const monsterId = monster ? `${area.id}:${localTile}` : null;
   return {
     chest,
     chestId,
     chestOpened: chestId ? openedChests.includes(chestId) : false,
     event,
+    monster,
+    monsterId,
+    monsterDefeated: monsterId ? defeatedMonsters.includes(monsterId) : false,
   };
 }
 
@@ -71,6 +76,18 @@ export function chestCoinBonus(game, config) {
   return equippedItems(game, config).reduce(
     (s, it) => s + (it.effect?.chestBonus || 0), 0,
   );
+}
+
+// 装備込みのバトル用ステータス（こうげき力・ぼうぎょ力・たいりょく）。
+export function heroStats(game, config) {
+  const items = equippedItems(game, config);
+  const atk = items.reduce((s, it) => s + (it.atk || 0), 0);
+  const def = items.reduce((s, it) => s + (it.def || 0), 0);
+  return {
+    atk: config.game.baseAtk + atk,
+    def: config.game.baseDef + def,
+    hp: config.game.baseHp,
+  };
 }
 
 // ---- 進む ----
@@ -98,7 +115,7 @@ export function applyMove(game, config) {
   };
 
   const loc = locate(next.position, config);
-  const info = tileInfo(loc.area, loc.localTile, next.openedChests);
+  const info = tileInfo(loc.area, loc.localTile, next.openedChests, game.defeatedMonsters || []);
 
   const result = {
     game: next, moved: true, cost,
@@ -107,6 +124,9 @@ export function applyMove(game, config) {
     localTile: loc.localTile,
     event: info.event ? info.event.text : null,
     chestReward: null,
+    monsterEncounter: (info.monster && !info.monsterDefeated)
+      ? { ...info.monster, id: info.monsterId }
+      : null,
     areaCleared: loc.areaIndex > fromArea ? locate(next.position, config).area : null,
     completed: next.position >= last,
   };
@@ -233,6 +253,15 @@ export const SPRITES = {
     '........', '..w.....', 'kn.w....', 'kn......',
     'kn.w....', 'knnn....', 'knnnn...', 'kkkkk...',
   ],
+  monster: [
+    '.kgggk..',
+    'kggggggk',
+    'gg0gg0gg',
+    'gggggggg',
+    'gkggggkg',
+    '.gg..gg.',
+    '.k....k.',
+  ],
 };
 
 // ドット絵の行配列 → 描画用セル配列 [{x,y,color}]。他の種族/スプライト辞書からも再利用できる。
@@ -250,6 +279,36 @@ export function rowsToCells(rows) {
 // スプライト文字列 → 描画用セル配列 [{x,y,color}]。
 export function spriteToCells(name) {
   return rowsToCells(SPRITES[name]);
+}
+
+// 装備を反映したヒーローの見た目（純粋関数）。
+// よろいで胴体の色が変わり、くつを履くと足元に色がつく。ぶきは呼び出し側で別途、
+// 横に添えて描く（spriteToCells('swordWood') 等をそのまま使う）。
+export function heroCells(equipped, shop) {
+  const base = rowsToCells(SPRITES.hero);
+  const armor = equipped?.armor ? shop.find((s) => s.id === equipped.armor) : null;
+  const boots = equipped?.boots ? shop.find((s) => s.id === equipped.boots) : null;
+
+  let cells = base.cells.map((c) => ({ ...c }));
+  if (armor?.tint) {
+    cells = cells.map((c) => (c.color === PALETTE.b ? { ...c, color: armor.tint } : c));
+  }
+  if (boots?.tint) {
+    // 足もと（列1-2, 5-6 / 行8-9）を装備色で塗りつぶす。
+    const footCells = [];
+    for (const y of [8, 9]) {
+      for (const x of [1, 2, 5, 6]) {
+        footCells.push({ x, y, color: boots.tint });
+      }
+    }
+    cells = [...cells, ...footCells];
+  }
+  return { cells, w: base.w, h: base.h };
+}
+
+// 冒険マップの「ウネウネ道」用：タイル番号から縦方向のうねりオフセットを返す（純粋関数）。
+export function pathWaveY(tile, amplitude = 14, frequency = 0.7) {
+  return Math.sin(tile * frequency) * amplitude;
 }
 
 // アイドルアニメーション用の上下オフセット（px）。t は performance.now() 等の経過ms。

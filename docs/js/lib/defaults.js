@@ -6,6 +6,9 @@
 // sprite はアイテムの見た目（game.js の SPRITES 名）。effect は装備効果。
 export const DEFAULT_GAME = {
   moveCost: 5,            // 1マス進むのに必要なコイン
+  baseAtk: 5,              // ヒーローの素のこうげき力
+  baseDef: 0,              // ヒーローの素のぼうぎょ力
+  baseHp: 25,              // バトル時のたいりょく
   areas: [
     {
       id: 'plains', name: 'はじまりの草原', theme: 'grass', length: 8,
@@ -16,6 +19,9 @@ export const DEFAULT_GAME = {
       events: [
         { tile: 1, text: '道ばたのネコがついてきた。' },
         { tile: 5, text: '小川のせせらぎで少し休んだ。' },
+      ],
+      monsters: [
+        { tile: 4, name: 'いたずらモグラ', hp: 18, atk: 2, reward: { coins: 12 } },
       ],
     },
     {
@@ -29,6 +35,9 @@ export const DEFAULT_GAME = {
         { tile: 4, text: '木もれ日がきらきらしている。' },
         { tile: 7, text: 'フクロウが道をおしえてくれた。' },
       ],
+      monsters: [
+        { tile: 6, name: 'まよいオオカミ', hp: 28, atk: 3, reward: { coins: 22 } },
+      ],
     },
     {
       id: 'castle', name: 'そらの城', theme: 'sky', length: 12,
@@ -41,33 +50,41 @@ export const DEFAULT_GAME = {
         { tile: 2, text: '雲のかいだんがのびている。' },
         { tile: 9, text: '風がつよい。あと少しで頂上だ。' },
       ],
+      monsters: [
+        { tile: 5, name: 'そらのばんにん', hp: 42, atk: 4, reward: { coins: 45 } },
+      ],
     },
   ],
   shop: [
-    { id: 'sword-wood', name: '木のつるぎ', slot: 'weapon', cost: 30, sprite: 'swordWood', desc: 'かけだし冒険者の相棒。' },
-    { id: 'sword-iron', name: '鉄のつるぎ', slot: 'weapon', cost: 90, sprite: 'swordIron', desc: 'ずっしり頼れる一振り。' },
-    { id: 'armor-leather', name: '革のよろい', slot: 'armor', cost: 50, sprite: 'armorLeather', effect: { chestBonus: 2 }, desc: '宝箱のコインが少し増える。' },
-    { id: 'armor-plate', name: '鋼のよろい', slot: 'armor', cost: 140, sprite: 'armorPlate', effect: { chestBonus: 4 }, desc: '宝箱のコインがぐっと増える。' },
-    { id: 'boots-swift', name: 'はやあしのくつ', slot: 'boots', cost: 40, sprite: 'bootsSwift', effect: { moveCostDelta: -1 }, desc: '移動コストが 1 へる。' },
-    { id: 'boots-wind', name: '風のブーツ', slot: 'boots', cost: 120, sprite: 'bootsWind', effect: { moveCostDelta: -2 }, desc: '移動コストが 2 へる。' },
+    { id: 'sword-wood', name: '木のつるぎ', slot: 'weapon', cost: 30, sprite: 'swordWood', atk: 3, desc: 'かけだし冒険者の相棒。こうげき+3。' },
+    { id: 'sword-iron', name: '鉄のつるぎ', slot: 'weapon', cost: 90, sprite: 'swordIron', atk: 8, desc: 'ずっしり頼れる一振り。こうげき+8。' },
+    { id: 'armor-leather', name: '革のよろい', slot: 'armor', cost: 50, sprite: 'armorLeather', tint: '#8a5a2b', def: 2, effect: { chestBonus: 2 }, desc: '宝箱のコインが少し増える。ぼうぎょ+2。' },
+    { id: 'armor-plate', name: '鋼のよろい', slot: 'armor', cost: 140, sprite: 'armorPlate', tint: '#9aa4b2', def: 5, effect: { chestBonus: 4 }, desc: '宝箱のコインがぐっと増える。ぼうぎょ+5。' },
+    { id: 'boots-swift', name: 'はやあしのくつ', slot: 'boots', cost: 40, sprite: 'bootsSwift', tint: '#8a5a2b', effect: { moveCostDelta: -1 }, desc: '移動コストが 1 へる。' },
+    { id: 'boots-wind', name: '風のブーツ', slot: 'boots', cost: 120, sprite: 'bootsWind', tint: '#7ec8e3', effect: { moveCostDelta: -2 }, desc: '移動コストが 2 へる。' },
   ],
 };
 
 // ペット育成（たまごっち系）の既定パラメータ。
 export const DEFAULT_PET = {
   feedCost: 5,                              // ごはん1回のコイン
+  cleanCost: 3,                             // おそうじ1回のコイン
   decayPerDay: { hunger: 8, happiness: 6 }, // 経過日ごとの自然な減り
   neglectThreshold: 30,                     // これ未満なら「放置日」扱い
   careToEvolve: [8, 14],                    // stage0→1, stage1→2 に必要なお世話回数
   formNeglectLimit: 1,                      // 放置日がこれ以下なら「元気」、超えたら「お疲れ気味」
+  poopPerDay: 1,                            // 1日ごとに増えるうんちの数
+  maxPoop: 5,                               // うんちの上限
+  poopHappinessPenalty: 2,                  // うんち1つあたり、なかよし度の減りが増える量
 };
 
 export const DEFAULT_GAME_STATE = {
   coinsEarned: 0,
   coinsSpent: 0,
   position: 0,
-  openedChests: [],   // 開けた宝箱の tileId（"areaId:tile"）
-  inventory: [],      // 所持アイテム id
+  openedChests: [],       // 開けた宝箱の tileId（"areaId:tile"）
+  defeatedMonsters: [],   // 倒したモンスターの tileId（"areaId:tile"）
+  inventory: [],          // 所持アイテム id
   equipped: { weapon: null, armor: null, boots: null },
 };
 

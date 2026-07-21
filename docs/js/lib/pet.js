@@ -94,6 +94,11 @@ const SPRITES_PET = {
   ],
 };
 
+// 悲しい時に頭のそばに出す小さな涙マーク。
+const SAD_MARK = ['.u.', 'uu.', '.u.'];
+// うんち（放置すると増える。おそうじで減らす）。
+const POOP = ['.nn.', 'nnnn', '.nn.'];
+
 // そのペットの現在の姿（スプライト名）。
 export function spriteKeyFor(pet) {
   if (!pet) return null;
@@ -107,6 +112,19 @@ export function petSpriteToCells(key) {
   return rowsToCells(SPRITES_PET[key]);
 }
 
+export function sadMarkCells() {
+  return rowsToCells(SAD_MARK);
+}
+
+export function poopCells() {
+  return rowsToCells(POOP);
+}
+
+// おなかがすいていると少し小さく見える見た目倍率（純粋関数）。
+export function bodyScaleFor(pet) {
+  return pet.hunger < 30 ? 0.82 : 1;
+}
+
 // ---- ペットの状態 ----
 
 export function createPet(speciesId, today = todayStr()) {
@@ -118,12 +136,14 @@ export function createPet(speciesId, today = todayStr()) {
     happiness: 80,
     careCount: 0,
     neglectDays: 0,
+    poopCount: 0,
     lastTick: today,
     adoptedAt: new Date().toISOString(),
   };
 }
 
 // 前回チェック日から今日までの経過日数ぶん、なでこ・なかよし度を減衰させる。
+// うんちも1日ごとに増え（上限あり）、たまっているとなかよし度の減りが早くなる。
 // どちらかが neglectThreshold 未満だった日を neglectDays に積む（純粋関数）。
 export function applyDailyDecay(pet, today, config) {
   if (pet.lastTick === today) return pet;
@@ -131,16 +151,25 @@ export function applyDailyDecay(pet, today, config) {
   let hunger = pet.hunger;
   let happiness = pet.happiness;
   let neglectDays = pet.neglectDays;
+  let poopCount = pet.poopCount || 0;
   let cursor = pet.lastTick;
   while (cursor < today) {
     hunger = Math.max(0, hunger - dHunger);
-    happiness = Math.max(0, happiness - dHappy);
+    const poopPenalty = poopCount * (config.poopHappinessPenalty || 0);
+    happiness = Math.max(0, happiness - dHappy - poopPenalty);
+    poopCount = Math.min(config.maxPoop ?? 5, poopCount + (config.poopPerDay ?? 1));
     if (hunger < config.neglectThreshold || happiness < config.neglectThreshold) {
       neglectDays += 1;
     }
     cursor = addDays(cursor, 1);
   }
-  return { ...pet, hunger, happiness, neglectDays, lastTick: today };
+  return { ...pet, hunger, happiness, neglectDays, poopCount, lastTick: today };
+}
+
+// おそうじ（1回で1つ減らす）。もう汚れていなければ何もしない。
+export function cleanPoop(pet) {
+  if ((pet.poopCount || 0) <= 0) return { pet, cleaned: false };
+  return { pet: { ...pet, poopCount: pet.poopCount - 1 }, cleaned: true };
 }
 
 // ごはん。満タンのときはお世話回数にカウントしない（無意味な連打での即進化を防ぐ）。

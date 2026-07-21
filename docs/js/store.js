@@ -10,10 +10,12 @@ import { expandForDay, withCompletionState } from './lib/taskExpand.js';
 import { computeStreak } from './lib/streak.js';
 import { todayStr, addDays } from './lib/dates.js';
 import {
-  balance, locate, totalTiles, effectiveMoveCost,
+  balance, locate, totalTiles, effectiveMoveCost, heroStats,
   applyMove, buyItem, equipItem,
 } from './lib/game.js';
-import { createPet, applyDailyDecay, feed, play, checkEvolution, SPECIES } from './lib/pet.js';
+import {
+  createPet, applyDailyDecay, feed, play, checkEvolution, cleanPoop, SPECIES,
+} from './lib/pet.js';
 
 export const WEEKDAY_JP = ['日', '月', '火', '水', '木', '金', '土'];
 
@@ -44,7 +46,18 @@ function ensureShape(data) {
   let changed = false;
   if (!data.config) { data.config = DEFAULT_CONFIG; changed = true; }
   if (!data.config.game) { data.config.game = DEFAULT_CONFIG.game; changed = true; }
+  else {
+    // 既存の config.game に、後から増えた設定キー（baseAtk等）を補完する。
+    for (const [k, v] of Object.entries(DEFAULT_CONFIG.game)) {
+      if (data.config.game[k] === undefined) { data.config.game[k] = v; changed = true; }
+    }
+  }
   if (!data.config.pet) { data.config.pet = DEFAULT_CONFIG.pet; changed = true; }
+  else {
+    for (const [k, v] of Object.entries(DEFAULT_CONFIG.pet)) {
+      if (data.config.pet[k] === undefined) { data.config.pet[k] = v; changed = true; }
+    }
+  }
 
   if (!data.game) {
     // これまでの達成ぶんを、冒険の初期コインとして引き継ぐ。
@@ -66,6 +79,7 @@ function ensureShape(data) {
   }
 
   if (data.pet === undefined) { data.pet = null; changed = true; }
+  if (data.pet && data.pet.poopCount === undefined) { data.pet.poopCount = 0; changed = true; }
   if (!Array.isArray(data.petAlbum)) { data.petAlbum = []; changed = true; }
 
   if (data.version !== DATA_VERSION) { data.version = DATA_VERSION; changed = true; }
@@ -163,6 +177,33 @@ export function deleteTask(id) {
   save(data);
 }
 
+// タスクの内容を修正する（削除→再作成しなくてよいように）。
+export function updateTask(id, body) {
+  const data = load();
+  const task = data.tasks.find((t) => t.id === id);
+  if (!task) throw new Error('task not found');
+
+  const kind = body.kind === 'spot' ? 'spot' : 'routine';
+  const title = String(body.title || '').trim();
+  if (!title) throw new Error('タスク名を入力してください');
+
+  task.title = title;
+  task.icon = body.icon || '⭐';
+  task.points = Number(body.points) || 0;
+  task.kind = kind;
+  if (kind === 'routine') {
+    const days = Array.isArray(body.days) ? body.days.map(Number) : [];
+    if (days.length === 0) throw new Error('曜日を1つ以上選んでください');
+    task.days = days;
+    task.date = undefined;
+  } else {
+    task.date = body.date || todayStr();
+    task.days = undefined;
+  }
+  save(data);
+  return task;
+}
+
 // ---- 今日のタスク ----
 
 export function getToday(childId, date = todayStr()) {
@@ -254,9 +295,24 @@ export function getGameView() {
     inventory: g.inventory || [],
     equipped: g.equipped || {},
     shop: data.config.game.shop,
+    heroStats: heroStats(g, data.config),
     config: data.config,
     game: g,
   };
+}
+
+// バトルで勝った時に、モンスターを倒し済みにして報酬を渡す。
+export function defeatMonster(monsterId, reward) {
+  const data = load();
+  if (!data.game.defeatedMonsters.includes(monsterId)) {
+    data.game.defeatedMonsters.push(monsterId);
+  }
+  if (reward?.coins) data.game.coinsEarned = (data.game.coinsEarned || 0) + reward.coins;
+  if (reward?.item && !data.game.inventory.includes(reward.item)) {
+    data.game.inventory.push(reward.item);
+  }
+  save(data);
+  return { ok: true, game: data.game };
 }
 
 export function advance() {
@@ -290,6 +346,7 @@ export function getPetView() {
     album: data.petAlbum,
     species: SPECIES,
     feedCost: data.config.pet.feedCost,
+    cleanCost: data.config.pet.cleanCost,
     careToEvolve: data.config.pet.careToEvolve,
   };
 }
@@ -326,6 +383,20 @@ export function playPet() {
   data.pet = evolvedPet;
   save(data);
   return { ok: true, pet: data.pet, evolved };
+}
+
+// うんちを1つ、コインを払って掃除する。
+export function cleanPetPoop() {
+  const data = load();
+  if (!data.pet) return { ok: false, reason: 'no-pet' };
+  const cost = data.config.pet.cleanCost;
+  if (balance(data.game) < cost) return { ok: false, reason: 'not-enough', cost };
+  const { pet: cleaned, cleaned: didClean } = cleanPoop(data.pet);
+  if (!didClean) return { ok: false, reason: 'clean' };
+  data.game.coinsSpent = (data.game.coinsSpent || 0) + cost;
+  data.pet = cleaned;
+  save(data);
+  return { ok: true, pet: data.pet };
 }
 
 export function graduatePet() {

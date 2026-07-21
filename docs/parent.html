@@ -22,7 +22,7 @@
   </header>
   <main class="app-main">
     <section class="panel">
-      <h2>タスクを追加</h2>
+      <h2 id="f-heading">タスクを追加</h2>
       <div class="field">
         <label>タスク名</label>
         <input id="f-title" placeholder="例: 数学の宿題" />
@@ -52,7 +52,10 @@
         <label>日付（スポット）</label>
         <input id="f-date" type="date" />
       </div>
-      <button class="btn" id="f-add">追加する</button>
+      <div class="row">
+        <button class="btn" id="f-add">追加する</button>
+        <button class="btn secondary" id="f-cancel" hidden>編集をやめる</button>
+      </div>
       <p id="f-msg" class="level-sub"></p>
     </section>
 

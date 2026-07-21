@@ -270,3 +270,13 @@ body {
 }
 #pet-picker .task-row .sprite-icon,
 #pet-album .task-row .sprite-icon { margin-right: 2px; }
+
+/* バトル */
+.battle-modal { max-width: 380px; }
+#battle-monster-canvas {
+  width: 100px; height: 100px; image-rendering: pixelated; border-radius: 6px;
+}
+.battle-hp-row { display: flex; gap: 12px; margin: 12px 0; text-align: left; }
+.battle-hp { flex: 1; }
+.battle-hp-label { font-size: 12px; font-weight: 700; color: var(--muted); margin-bottom: 4px; }
+.xpbar > span.danger { background: linear-gradient(90deg, #f87171, #ef4444); }

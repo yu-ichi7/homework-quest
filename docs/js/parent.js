@@ -1,10 +1,10 @@
 import {
-  getChildren, getTasks, addTask, deleteTask, updateChild,
+  getChildren, getTasks, addTask, updateTask, deleteTask, updateChild,
   exportData, importData, WEEKDAY_JP,
 } from './store.js';
 import { todayStr } from './lib/dates.js';
 
-const state = { children: [], tasks: [] };
+const state = { children: [], tasks: [], editingId: null };
 
 function init() {
   load();
@@ -37,10 +37,11 @@ function wireForm() {
     document.getElementById('days-field').hidden = isSpot;
     document.getElementById('date-field').hidden = !isSpot;
   };
-  document.getElementById('f-add').onclick = handleAddTask;
+  document.getElementById('f-add').onclick = handleSubmitTask;
+  document.getElementById('f-cancel').onclick = exitEditMode;
 }
 
-function handleAddTask() {
+function handleSubmitTask() {
   const kind = document.getElementById('f-kind').value;
   const body = {
     childId: 'all',
@@ -56,14 +57,57 @@ function handleAddTask() {
   }
   const msg = document.getElementById('f-msg');
   try {
-    addTask(body);
-    msg.textContent = '✅ 追加しました';
-    document.getElementById('f-title').value = '';
-    document.getElementById('f-icon').value = '';
+    if (state.editingId) {
+      updateTask(state.editingId, body);
+      msg.textContent = '✅ 更新しました';
+    } else {
+      addTask(body);
+      msg.textContent = '✅ 追加しました';
+    }
+    exitEditMode();
     load();
   } catch (err) {
     msg.textContent = '⚠️ ' + err.message;
   }
+}
+
+function enterEditMode(task) {
+  state.editingId = task.id;
+  document.getElementById('f-heading').textContent = 'タスクを編集';
+  document.getElementById('f-add').textContent = '更新する';
+  document.getElementById('f-cancel').hidden = false;
+  document.getElementById('f-title').value = task.title;
+  document.getElementById('f-icon').value = task.icon || '';
+  document.getElementById('f-points').value = task.points;
+  document.getElementById('f-kind').value = task.kind;
+  const isSpot = task.kind === 'spot';
+  document.getElementById('days-field').hidden = isSpot;
+  document.getElementById('date-field').hidden = !isSpot;
+  if (isSpot) {
+    document.getElementById('f-date').value = task.date || '';
+  } else {
+    const days = task.days || [];
+    document.querySelectorAll('#f-days input').forEach((input) => {
+      input.checked = days.includes(Number(input.value));
+    });
+  }
+  document.getElementById('f-heading').scrollIntoView({ behavior: 'smooth', block: 'start' });
+}
+
+function exitEditMode() {
+  state.editingId = null;
+  document.getElementById('f-heading').textContent = 'タスクを追加';
+  document.getElementById('f-add').textContent = '追加する';
+  document.getElementById('f-cancel').hidden = true;
+  document.getElementById('f-title').value = '';
+  document.getElementById('f-icon').value = '';
+  document.getElementById('f-points').value = 10;
+  document.getElementById('f-kind').value = 'routine';
+  document.getElementById('days-field').hidden = false;
+  document.getElementById('date-field').hidden = true;
+  document.querySelectorAll('#f-days input').forEach((input, i) => {
+    input.checked = i >= 1 && i <= 5;
+  });
 }
 
 function renderTaskLists() {
@@ -90,11 +134,17 @@ function taskRow(t) {
       <div class="name">${t.title}</div>
       <div class="sub">${sub} ・ ${t.points}ポイント</div>
     </div>`;
+  const edit = document.createElement('button');
+  edit.className = 'btn small secondary';
+  edit.textContent = '編集';
+  edit.onclick = () => enterEditMode(t);
+  row.appendChild(edit);
   const del = document.createElement('button');
   del.className = 'btn danger small';
   del.textContent = '削除';
   del.onclick = () => {
     if (!confirm(`「${t.title}」を削除しますか？`)) return;
+    if (state.editingId === t.id) exitEditMode();
     deleteTask(t.id);
     load();
   };

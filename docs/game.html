@@ -84,6 +84,9 @@
           <button class="btn" id="pet-feed-btn">ごはん（🪙 <span id="pet-feed-cost">-</span>）</button>
           <button class="btn secondary" id="pet-play-btn">あそぶ</button>
         </div>
+        <button class="btn secondary" id="pet-clean-btn" style="width:100%; margin-top:8px">
+          おそうじ（🪙 <span id="pet-clean-cost">-</span>）
+        </button>
         <p id="pet-msg" class="level-sub"></p>
         <button class="btn secondary" id="pet-graduate-btn" style="width:100%; margin-top:8px" hidden>そつぎょうさせる</button>
       </section>
@@ -101,6 +104,30 @@
       <h3 id="modal-title"></h3>
       <p id="modal-text"></p>
       <button id="modal-ok">OK</button>
+    </div>
+  </div>
+
+  <div class="modal-back" id="battle-modal" hidden>
+    <div class="modal battle-modal">
+      <h3 id="battle-monster-name">-</h3>
+      <div class="retro-frame">
+        <canvas id="battle-monster-canvas" width="100" height="100"></canvas>
+      </div>
+      <div class="battle-hp-row">
+        <div class="battle-hp">
+          <div class="battle-hp-label">ゆうしゃ <span id="battle-hero-hp-text">-</span></div>
+          <div class="xpbar"><span id="battle-hero-hp-fill" style="width:100%"></span></div>
+        </div>
+        <div class="battle-hp">
+          <div class="battle-hp-label">あいて <span id="battle-monster-hp-text">-</span></div>
+          <div class="xpbar"><span id="battle-monster-hp-fill" class="danger" style="width:100%"></span></div>
+        </div>
+      </div>
+      <p id="battle-msg" class="level-sub"></p>
+      <div class="row">
+        <button id="battle-attack-btn">こうげきする</button>
+        <button class="btn secondary" id="battle-close-btn" hidden>とじる</button>
+      </div>
     </div>
   </div>
 
