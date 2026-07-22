@@ -1,4 +1,6 @@
-import { getGameView, advance, buy, equip, defeatMonster } from './store.js';
+import {
+  getGameView, advance, buy, equip, defeatMonster, monsterDefeatCost,
+} from './store.js';
 import {
   tileInfo, spriteToCells, idleOffset, heroCells, pathWaveY,
 } from './lib/game.js';
@@ -9,18 +11,17 @@ const THEME = {
   sky: { sky: '#eaf4ff', ground: '#cbb994', ground2: '#b8a37f', path: '#a88f6c' },
 };
 
-const VISIBLE_TILES = 8;
-const CELL = 4;
+const CELL = 5;
 
 let currentView = null;
 let rafId = null;
-let battle = null; // { monster, monsterId, heroHp, heroMaxHp, monsterHp, monsterMaxHp, over }
+let battle = null; // { monster }
 
 function init() {
   document.getElementById('advance-btn').onclick = handleAdvance;
   document.getElementById('modal-ok').onclick = () => { document.getElementById('modal').hidden = true; };
-  document.getElementById('battle-attack-btn').onclick = handleBattleAttack;
-  document.getElementById('battle-close-btn').onclick = closeBattle;
+  document.getElementById('battle-defeat-btn').onclick = handleBattleDefeat;
+  document.getElementById('battle-flee-btn').onclick = closeBattle;
   document.addEventListener('game-tab-changed', (e) => {
     if (e.detail.tab === 'adventure') startIdleLoop(); else stopIdleLoop();
   });
@@ -44,12 +45,12 @@ function render() {
   const view = getGameView();
   currentView = view;
   document.getElementById('coin-balance').textContent = view.balance;
-  document.getElementById('area-name').textContent = view.isComplete ? '🏆 ぼうけんクリア！' : view.area.name;
+  document.getElementById('area-name').textContent = view.isComplete ? '🏆 冒険クリア！' : view.area.name;
 
   const ratio = view.area.length > 1 ? view.localTile / (view.area.length - 1) : 1;
   document.getElementById('area-fill').style.width = `${Math.round(Math.min(1, ratio) * 100)}%`;
   document.getElementById('area-sub').textContent = view.isComplete
-    ? 'すべてのエリアをせいはしました！'
+    ? 'すべてのエリアを制覇しました！'
     : `${view.localTile + 1} / ${view.area.length} マス目`;
 
   document.getElementById('move-cost').textContent = view.moveCost;
@@ -78,80 +79,44 @@ function handleAdvance() {
     startBattle(res.monsterEncounter);
   } else if (res.chestReward) {
     if (res.chestReward.kind === 'coins') {
-      showModal('🪙', 'たからばこ！', `+${res.chestReward.coins} コイン`);
+      showModal('🪙', '宝箱！', `+${res.chestReward.coins} コイン`);
     } else {
-      showModal('🎁', 'たからばこ！', `「${res.chestReward.item.name}」を手に入れた！`);
+      showModal('🎁', '宝箱！', `「${res.chestReward.item.name}」を手に入れた！`);
     }
   } else if (res.areaCleared) {
     showModal('🚩', 'エリアクリア！', `「${res.areaCleared.name}」に到着！`);
   } else if (res.completed) {
-    showModal('🏆', 'ぼうけんクリア！', 'すべてのエリアをせいはした！');
-  } else if (res.event) {
-    showModal('💬', 'できごと', res.event);
+    showModal('🏆', '冒険クリア！', 'すべてのエリアを制覇した！');
   }
 }
 
-// ---- バトル ----
+// ---- 対戦（コインで倒す。装備のこうげき力ぶん安くなる） ----
 
 function startBattle(monster) {
-  const stats = currentView.heroStats;
-  battle = {
-    monster,
-    monsterId: monster.id,
-    heroHp: stats.hp,
-    heroMaxHp: stats.hp,
-    heroAtk: stats.atk,
-    heroDef: stats.def,
-    monsterHp: monster.hp,
-    monsterMaxHp: monster.hp,
-    over: false,
-  };
+  battle = { monster };
+  const cost = monsterDefeatCost(monster);
   document.getElementById('battle-monster-name').textContent = monster.name;
-  document.getElementById('battle-msg').textContent = `${monster.name} があらわれた！`;
-  document.getElementById('battle-attack-btn').hidden = false;
-  document.getElementById('battle-close-btn').hidden = true;
-  renderBattle();
+  document.getElementById('battle-msg').textContent = `${monster.name} が現れた！ 装備が強いほど、倒すコインが安くなるよ。`;
+  document.getElementById('battle-defeat-cost').textContent = cost;
+  document.getElementById('battle-attack-power').textContent = currentView.heroAttack;
+  document.getElementById('battle-defeat-btn').hidden = false;
+  document.getElementById('battle-flee-btn').textContent = 'にげる';
   drawBattleMonster();
   document.getElementById('battle-modal').hidden = false;
 }
 
-function renderBattle() {
-  document.getElementById('battle-hero-hp-fill').style.width = `${Math.round((battle.heroHp / battle.heroMaxHp) * 100)}%`;
-  document.getElementById('battle-hero-hp-text').textContent = `${Math.max(0, battle.heroHp)}/${battle.heroMaxHp}`;
-  document.getElementById('battle-monster-hp-fill').style.width = `${Math.round((Math.max(0, battle.monsterHp) / battle.monsterMaxHp) * 100)}%`;
-  document.getElementById('battle-monster-hp-text').textContent = `${Math.max(0, battle.monsterHp)}/${battle.monsterMaxHp}`;
-}
-
-function handleBattleAttack() {
-  if (!battle || battle.over) return;
+function handleBattleDefeat() {
+  if (!battle) return;
   const msg = document.getElementById('battle-msg');
-
-  battle.monsterHp -= battle.heroAtk;
-  if (battle.monsterHp <= 0) {
-    battle.over = true;
-    renderBattle();
-    const res = defeatMonster(battle.monsterId, battle.monster.reward);
-    render();
-    msg.textContent = `${battle.monster.name} をたおした！ +${battle.monster.reward?.coins || 0} コイン`;
-    document.getElementById('battle-attack-btn').hidden = true;
-    document.getElementById('battle-close-btn').hidden = false;
-    void res;
+  const res = defeatMonster(battle.monster);
+  if (!res.ok) {
+    msg.textContent = `コインが足りません（${res.cost}コイン必要）`;
     return;
   }
-
-  const dmg = Math.max(1, battle.monster.atk - battle.heroDef);
-  battle.heroHp -= dmg;
-  renderBattle();
-
-  if (battle.heroHp <= 0) {
-    battle.over = true;
-    msg.textContent = 'たいりょくがなくなった…でなおそう！';
-    document.getElementById('battle-attack-btn').hidden = true;
-    document.getElementById('battle-close-btn').hidden = false;
-    return;
-  }
-
-  msg.textContent = `こうげき！ ${battle.heroAtk}ダメージ。${battle.monster.name}のこうげきで${dmg}ダメージをうけた。`;
+  render();
+  msg.textContent = `${battle.monster.name} を倒した！ 🪙${res.cost} をつかい、ほうびに +${res.reward?.coins || 0} コイン！`;
+  document.getElementById('battle-defeat-btn').hidden = true;
+  document.getElementById('battle-flee-btn').textContent = 'とじる';
 }
 
 function closeBattle() {
@@ -190,10 +155,6 @@ function drawSprite(ctx, name, centerX, groundY, cellSize = CELL) {
   drawCells(ctx, spriteToCells(name), centerX, groundY, cellSize);
 }
 
-function tileCenter(i, tileWidth, baseY) {
-  return { x: i * tileWidth + tileWidth / 2, y: baseY + pathWaveY(i) };
-}
-
 function drawMap(view, tNow = 0) {
   const canvas = document.getElementById('map-canvas');
   const ctx = canvas.getContext('2d');
@@ -201,71 +162,63 @@ function drawMap(view, tNow = 0) {
   const W = canvas.width;
   const H = canvas.height;
   const theme = THEME[view.area.theme] || THEME.grass;
-  const heroBob = idleOffset(tNow, 1, 900);
+  const heroBob = idleOffset(tNow, 2, 900);
 
   ctx.fillStyle = theme.sky;
   ctx.fillRect(0, 0, W, H);
 
-  const baseY = H - 40;
-  const tileWidth = W / VISIBLE_TILES;
+  // マップは動かさず、エリアの全マスを画面内に並べる（スクロール無し）。
+  const baseY = H - 46;
   const length = view.area.length;
-  const maxCamera = Math.max(0, length - VISIBLE_TILES);
-  const camera = Math.min(maxCamera, Math.max(0, view.localTile - 3));
+  const margin = W * 0.06;
+  const tileWidth = (W - margin * 2) / Math.max(1, length - 1);
+  const centerAt = (tile) => ({ x: margin + tile * tileWidth, y: baseY + pathWaveY(tile) });
 
   // 道（タイル中心をウネウネつなぐ）。
   ctx.strokeStyle = theme.path;
-  ctx.lineWidth = Math.max(6, tileWidth * 0.35);
+  ctx.lineWidth = Math.max(8, tileWidth * 0.3);
   ctx.lineCap = 'round';
   ctx.lineJoin = 'round';
   ctx.beginPath();
-  let started = false;
-  for (let i = 0; i < VISIBLE_TILES; i += 1) {
-    const tile = camera + i;
-    if (tile >= length) break;
-    const { x, y } = tileCenter(tile, tileWidth, baseY);
-    if (!started) { ctx.moveTo(x, y); started = true; } else { ctx.lineTo(x, y); }
+  for (let tile = 0; tile < length; tile += 1) {
+    const { x, y } = centerAt(tile);
+    if (tile === 0) ctx.moveTo(x, y); else ctx.lineTo(x, y);
   }
   ctx.stroke();
 
   // タイル（踏み石）。
-  for (let i = 0; i < VISIBLE_TILES; i += 1) {
-    const tile = camera + i;
-    if (tile >= length) break;
-    const { x, y } = tileCenter(tile, tileWidth, baseY);
-    const size = tileWidth * 0.55;
+  for (let tile = 0; tile < length; tile += 1) {
+    const { x, y } = centerAt(tile);
+    const size = Math.min(tileWidth * 0.6, 22);
     ctx.fillStyle = tile % 2 === 0 ? theme.ground : theme.ground2;
     ctx.beginPath();
-    ctx.roundRect(x - size / 2, y - size / 2, size, size, 6);
+    ctx.roundRect(x - size / 2, y - size / 2, size, size, 5);
     ctx.fill();
   }
 
   const openedChests = view.game.openedChests || [];
   const defeatedMonsters = view.game.defeatedMonsters || [];
-  for (let i = 0; i < VISIBLE_TILES; i += 1) {
-    const tile = camera + i;
-    if (tile >= length) break;
+  for (let tile = 0; tile < length; tile += 1) {
     const info = tileInfo(view.area, tile, openedChests, defeatedMonsters);
-    const { x, y } = tileCenter(tile, tileWidth, baseY);
-    if (info.chest) {
-      drawSprite(ctx, info.chestOpened ? 'chestOpen' : 'chest', x, y);
-    }
-    if (info.monster && !info.monsterDefeated) {
-      drawSprite(ctx, 'monster', x, y);
-    }
+    const { x, y } = centerAt(tile);
+    if (info.chest) drawSprite(ctx, info.chestOpened ? 'chestOpen' : 'chest', x, y);
+    if (info.monster && !info.monsterDefeated) drawSprite(ctx, 'monster', x, y);
   }
 
-  if (length - 1 >= camera && length - 1 < camera + VISIBLE_TILES) {
-    const { x, y } = tileCenter(length - 1, tileWidth, baseY);
+  // ゴール旗（最後のマス）。
+  {
+    const { x, y } = centerAt(length - 1);
     drawSprite(ctx, 'flag', x, y);
   }
 
-  if (view.localTile >= camera && view.localTile < camera + VISIBLE_TILES) {
-    const { x, y } = tileCenter(view.localTile, tileWidth, baseY);
+  // ヒーローだけがマスからマスへ動く（マップ自体は固定）。
+  {
+    const { x, y } = centerAt(view.localTile);
     const heroY = y - heroBob;
     const hc = heroCells(view.equipped, view.shop);
     drawCells(ctx, hc, x, heroY, CELL);
 
-    // ぶきは手もとに小さく添えて描く。
+    // 武器は手もとに小さく添えて描く。
     const weaponId = view.equipped?.weapon;
     const weapon = weaponId ? view.shop.find((s) => s.id === weaponId) : null;
     if (weapon) {
@@ -294,7 +247,7 @@ function spriteCanvas(name, cellSize = CELL) {
 function renderEquip(view) {
   const el = document.getElementById('equip-row');
   el.innerHTML = '';
-  const slots = [['weapon', 'ぶき'], ['armor', 'よろい'], ['boots', 'くつ']];
+  const slots = [['weapon', '武器'], ['armor', '鎧'], ['boots', '靴']];
   for (const [slot, label] of slots) {
     const id = view.equipped[slot];
     const item = id ? view.shop.find((s) => s.id === id) : null;
@@ -325,14 +278,14 @@ function renderShop(view) {
     const meta = document.createElement('div');
     meta.className = 'meta';
     meta.innerHTML = `
-      <div class="name">${item.name}${isEquipped ? '（そうび中）' : ''}</div>
+      <div class="name">${item.name}${isEquipped ? '（装備中）' : ''}</div>
       <div class="sub">${item.desc} ・ 🪙${item.cost}</div>`;
     row.appendChild(meta);
 
     const btn = document.createElement('button');
     btn.className = 'btn small' + (isEquipped ? ' secondary' : '');
     if (!owned) {
-      btn.textContent = 'こうにゅう';
+      btn.textContent = '購入';
       btn.onclick = () => {
         const res = buy(item.id);
         const msg = document.getElementById('move-msg');
@@ -340,7 +293,7 @@ function renderShop(view) {
         render();
       };
     } else {
-      btn.textContent = isEquipped ? 'はずす' : 'そうびする';
+      btn.textContent = isEquipped ? '外す' : '装備する';
       btn.onclick = () => { equip(item.id); render(); };
     }
     row.appendChild(btn);

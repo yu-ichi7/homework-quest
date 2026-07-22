@@ -6,9 +6,8 @@
 // sprite はアイテムの見た目（game.js の SPRITES 名）。effect は装備効果。
 export const DEFAULT_GAME = {
   moveCost: 5,            // 1マス進むのに必要なコイン
-  baseAtk: 5,              // ヒーローの素のこうげき力
-  baseDef: 0,              // ヒーローの素のぼうぎょ力
-  baseHp: 25,              // バトル時のたいりょく
+  baseAtk: 5,             // 装備なしでも相手コストを減らせる基本のこうげき力
+  monsterMinCostRatio: 0.25, // 装備で下がっても、これ以下にはならない（元コスト比）
   areas: [
     {
       id: 'plains', name: 'はじまりの草原', theme: 'grass', length: 8,
@@ -16,12 +15,8 @@ export const DEFAULT_GAME = {
         { tile: 3, reward: { coins: 15 } },
         { tile: 6, reward: { item: 'boots-swift' } },
       ],
-      events: [
-        { tile: 1, text: '道ばたのネコがついてきた。' },
-        { tile: 5, text: '小川のせせらぎで少し休んだ。' },
-      ],
       monsters: [
-        { tile: 4, name: 'いたずらモグラ', hp: 18, atk: 2, reward: { coins: 12 } },
+        { tile: 4, name: 'いたずらモグラ', cost: 20, reward: { coins: 12 } },
       ],
     },
     {
@@ -31,12 +26,8 @@ export const DEFAULT_GAME = {
         { tile: 5, reward: { item: 'armor-leather' } },
         { tile: 8, reward: { coins: 30 } },
       ],
-      events: [
-        { tile: 4, text: '木もれ日がきらきらしている。' },
-        { tile: 7, text: 'フクロウが道をおしえてくれた。' },
-      ],
       monsters: [
-        { tile: 6, name: 'まよいオオカミ', hp: 28, atk: 3, reward: { coins: 22 } },
+        { tile: 6, name: 'まよいオオカミ', cost: 34, reward: { coins: 22 } },
       ],
     },
     {
@@ -46,36 +37,34 @@ export const DEFAULT_GAME = {
         { tile: 7, reward: { item: 'sword-iron' } },
         { tile: 11, reward: { coins: 50 } },
       ],
-      events: [
-        { tile: 2, text: '雲のかいだんがのびている。' },
-        { tile: 9, text: '風がつよい。あと少しで頂上だ。' },
-      ],
       monsters: [
-        { tile: 5, name: 'そらのばんにん', hp: 42, atk: 4, reward: { coins: 45 } },
+        { tile: 5, name: 'そらのばんにん', cost: 50, reward: { coins: 45 } },
       ],
     },
   ],
   shop: [
-    { id: 'sword-wood', name: '木のつるぎ', slot: 'weapon', cost: 30, sprite: 'swordWood', atk: 3, desc: 'かけだし冒険者の相棒。こうげき+3。' },
-    { id: 'sword-iron', name: '鉄のつるぎ', slot: 'weapon', cost: 90, sprite: 'swordIron', atk: 8, desc: 'ずっしり頼れる一振り。こうげき+8。' },
-    { id: 'armor-leather', name: '革のよろい', slot: 'armor', cost: 50, sprite: 'armorLeather', tint: '#8a5a2b', def: 2, effect: { chestBonus: 2 }, desc: '宝箱のコインが少し増える。ぼうぎょ+2。' },
-    { id: 'armor-plate', name: '鋼のよろい', slot: 'armor', cost: 140, sprite: 'armorPlate', tint: '#9aa4b2', def: 5, effect: { chestBonus: 4 }, desc: '宝箱のコインがぐっと増える。ぼうぎょ+5。' },
-    { id: 'boots-swift', name: 'はやあしのくつ', slot: 'boots', cost: 40, sprite: 'bootsSwift', tint: '#8a5a2b', effect: { moveCostDelta: -1 }, desc: '移動コストが 1 へる。' },
-    { id: 'boots-wind', name: '風のブーツ', slot: 'boots', cost: 120, sprite: 'bootsWind', tint: '#7ec8e3', effect: { moveCostDelta: -2 }, desc: '移動コストが 2 へる。' },
+    { id: 'sword-wood', name: '木の剣', slot: 'weapon', cost: 30, sprite: 'swordWood', atk: 4, desc: '駆け出し冒険者の相棒。攻撃+4（相手コストが減る）。' },
+    { id: 'sword-iron', name: '鉄の剣', slot: 'weapon', cost: 90, sprite: 'swordIron', atk: 10, desc: 'ずっしり頼れる一振り。攻撃+10（相手コストが減る）。' },
+    { id: 'armor-leather', name: '革の鎧', slot: 'armor', cost: 50, sprite: 'armorLeather', tint: '#8a5a2b', atk: 2, effect: { chestBonus: 2 }, desc: '宝箱のコインが少し増える。攻撃+2。' },
+    { id: 'armor-plate', name: '鋼の鎧', slot: 'armor', cost: 140, sprite: 'armorPlate', tint: '#9aa4b2', atk: 4, effect: { chestBonus: 4 }, desc: '宝箱のコインがぐっと増える。攻撃+4。' },
+    { id: 'boots-swift', name: '俊足の靴', slot: 'boots', cost: 40, sprite: 'bootsSwift', tint: '#8a5a2b', effect: { moveCostDelta: -1 }, desc: '移動コストが 1 減る。' },
+    { id: 'boots-wind', name: '風のブーツ', slot: 'boots', cost: 120, sprite: 'bootsWind', tint: '#7ec8e3', effect: { moveCostDelta: -2 }, desc: '移動コストが 2 減る。' },
   ],
 };
 
 // ペット育成（たまごっち系）の既定パラメータ。
+// お腹・仲良し度は 1日4回（朝6時・昼12時・午後3時・夕方6時）に少しずつ減る。
 export const DEFAULT_PET = {
-  feedCost: 5,                              // ごはん1回のコイン
-  cleanCost: 3,                             // おそうじ1回のコイン
-  decayPerDay: { hunger: 8, happiness: 6 }, // 経過日ごとの自然な減り
-  neglectThreshold: 30,                     // これ未満なら「放置日」扱い
-  careToEvolve: [8, 14],                    // stage0→1, stage1→2 に必要なお世話回数
-  formNeglectLimit: 1,                      // 放置日がこれ以下なら「元気」、超えたら「お疲れ気味」
-  poopPerDay: 1,                            // 1日ごとに増えるうんちの数
-  maxPoop: 5,                               // うんちの上限
-  poopHappinessPenalty: 2,                  // うんち1つあたり、なかよし度の減りが増える量
+  feedCost: 5,                                  // ごはん1回のコイン
+  cleanCost: 3,                                 // おそうじ1回のコイン
+  checkpoints: [6, 12, 15, 18],                 // 減衰が起きる時刻（時）
+  decayPerCheckpoint: { hunger: 4, happiness: 3 }, // 1チェックポイントごとの減り
+  neglectThreshold: 30,                         // これ未満なら「放置」チェックポイント
+  careToEvolve: [8, 14],                        // stage0→1, stage1→2 に必要なお世話回数
+  formNeglectLimit: 3,                          // 放置チェックポイントがこれ以下なら「元気」
+  poopPerDay: 1,                                // 1日（朝6時）ごとに増えるうんちの数
+  maxPoop: 5,                                   // うんちの上限
+  poopHappinessPenalty: 1,                      // うんち1つあたり、仲良し度の減りが増える量
 };
 
 export const DEFAULT_GAME_STATE = {

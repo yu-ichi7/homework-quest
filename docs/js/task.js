@@ -29,12 +29,11 @@ function isScheduled(task, y, m, day) {
   return Array.isArray(task.days) && task.days.includes(dayOfWeek(ds));
 }
 
-// 達成度から色の段階（0=予定だが未達, 1..3=達成度）を返す。
-function heatLevel(count, target) {
+// やった回数から色の段階（0=なし, 1〜3=多いほど濃い）を返す。
+function heatLevel(count) {
   if (count <= 0) return 0;
-  const ratio = Math.min(1, count / target);
-  if (ratio >= 1) return 3;
-  if (ratio >= 0.5) return 2;
+  if (count >= 3) return 3;
+  if (count === 2) return 2;
   return 1;
 }
 
@@ -46,7 +45,7 @@ function render(hist) {
 
   document.getElementById('s-streak').innerHTML = `${hist.streak}<span class="u">日</span>`;
   document.getElementById('s-total').textContent = hist.total;
-  document.getElementById('s-target').textContent = `${hist.targetCount}回`;
+  document.getElementById('s-target').textContent = `${hist.todayCount || 0}回`;
 
   const [ty, tm] = hist.today.split('-').map(Number);
   const container = document.getElementById('heatmaps');
@@ -61,7 +60,7 @@ function render(hist) {
 }
 
 function monthBlock(hist, y, m) {
-  const { task, countByDate, targetCount, today } = hist;
+  const { task, countByDate, today } = hist;
   const wrap = document.createElement('div');
   wrap.className = 'hist-month';
 
@@ -91,11 +90,11 @@ function monthBlock(hist, y, m) {
     const scheduled = isScheduled(task, y, m, day);
     const cell = document.createElement('div');
     let cls = 'cell';
-    if (count > 0) cls += ` heat-${heatLevel(count, targetCount)}`;
+    if (count > 0) cls += ` heat-${heatLevel(count)}`;
     else if (scheduled) cls += ' scheduled';
     if (ds === today) cls += ' today';
     cell.className = cls;
-    const countLabel = (count > 0 && targetCount > 1) ? `<div class="pt">${count}/${targetCount}</div>` : '';
+    const countLabel = count > 1 ? `<div class="pt">${count}</div>` : '';
     cell.innerHTML = `<div>${day}</div>${countLabel}`;
     cal.appendChild(cell);
   }

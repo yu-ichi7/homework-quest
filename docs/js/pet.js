@@ -84,7 +84,7 @@ function renderPicker(view) {
     card.appendChild(meta);
     const btn = document.createElement('button');
     btn.className = 'btn small';
-    btn.textContent = 'そだてる';
+    btn.textContent = '育てる';
     btn.onclick = () => { adoptPet(sp.id); render(); };
     card.appendChild(btn);
     el.appendChild(card);
@@ -94,10 +94,10 @@ function renderPicker(view) {
 // ---- お世話 ----
 
 function flavorText(pet) {
-  if (pet.poopCount >= 3) return 'うんちがたまってる…そうじしてほしいな';
-  if (pet.hunger < 30) return 'おなかすいたな…ごはんちょうだい';
-  if (pet.happiness < 30) return 'ちょっとさみしいな…あそんでほしいな';
-  if (pet.hunger >= 90 && pet.happiness >= 90) return 'きょうもげんき！だいすき！';
+  if (pet.poopCount >= 3) return 'うんちが溜まってる…掃除してほしいな';
+  if (pet.hunger < 30) return 'お腹すいたな…ごはんちょうだい';
+  if (pet.happiness < 30) return 'ちょっと寂しいな…遊んでほしいな';
+  if (pet.hunger >= 90 && pet.happiness >= 90) return '今日も元気！大好き！';
   return 'まったり中。';
 }
 
@@ -110,11 +110,11 @@ function renderCare(view) {
   document.getElementById('pet-flavor').textContent = flavorText(pet);
   document.getElementById('pet-feed-cost').textContent = feedCost;
   document.getElementById('pet-clean-cost').textContent = cleanCost;
-  document.getElementById('pet-clean-btn').textContent = `おそうじ（🪙 ${cleanCost}）${pet.poopCount > 0 ? ` ×${pet.poopCount}` : ''}`;
+  document.getElementById('pet-clean-btn').textContent = `掃除（🪙 ${cleanCost}）${pet.poopCount > 0 ? ` ×${pet.poopCount}` : ''}`;
 
   const progress = document.getElementById('pet-progress');
   if (pet.stage < 2) {
-    progress.textContent = `つぎのすがたまで：おせわ ${pet.careCount}/${view.careToEvolve[pet.stage]}`;
+    progress.textContent = `次の姿まで：お世話 ${pet.careCount}/${view.careToEvolve[pet.stage]}`;
   } else {
     progress.textContent = '成体になりました！';
   }
@@ -127,7 +127,7 @@ function handleFeed() {
   const msg = document.getElementById('pet-msg');
   if (!res.ok) {
     msg.textContent = res.reason === 'not-enough' ? '🪙が足りません'
-      : res.reason === 'full' ? 'もうおなかいっぱいみたい' : '';
+      : res.reason === 'full' ? 'もうお腹いっぱいみたい' : '';
     return;
   }
   msg.textContent = '';
@@ -139,7 +139,7 @@ function handlePlay() {
   const res = playPet();
   const msg = document.getElementById('pet-msg');
   if (!res.ok) {
-    msg.textContent = res.reason === 'full' ? 'もうじゅうぶんなかよしみたい' : '';
+    msg.textContent = res.reason === 'full' ? 'もう十分仲良しみたい' : '';
     return;
   }
   msg.textContent = '';
@@ -152,19 +152,19 @@ function handleClean() {
   const msg = document.getElementById('pet-msg');
   if (!res.ok) {
     msg.textContent = res.reason === 'not-enough' ? '🪙が足りません'
-      : res.reason === 'clean' ? 'もうきれいだよ' : '';
+      : res.reason === 'clean' ? 'もう綺麗だよ' : '';
     return;
   }
-  msg.textContent = '✅ きれいになった';
+  msg.textContent = '✅ 綺麗になった';
   render();
 }
 
 function celebrateEvolution(pet) {
-  showModal('✨', 'すがたがかわった！', `${STAGE_NAMES[pet.stage]}になった！`);
+  showModal('✨', '姿が変わった！', `${STAGE_NAMES[pet.stage]}になった！`);
 }
 
 function handleGraduate() {
-  if (!confirm('この子をそつぎょうさせて、図鑑に記録しますか？')) return;
+  if (!confirm('この子を卒業させて、図鑑に記録しますか？')) return;
   graduatePet();
   render();
 }
@@ -222,20 +222,21 @@ function drawPet(view, tNow = 0) {
     }
   }
 
-  // うんちを足もとに並べる。
+  // うんちはキャンバスの「右下の角」にまとめて並べる。
+  // 体の真下だと体の一部に見えてしまうため、あえて横（右下）へ寄せて固定する。
   if (pet.poopCount > 0) {
     const poop = poopCells();
     const poopSize = 8;
-    const poopGap = poop.w * poopSize + 6;
-    const totalWidth = poopGap * pet.poopCount - 6;
-    let px = centerX - totalWidth / 2;
+    const poopW = poop.w * poopSize;
+    const poopGap = poopW + 4;
     const py = canvas.height - poop.h * poopSize - 6;
+    const rightEdge = canvas.width - 6;
     for (let i = 0; i < pet.poopCount; i += 1) {
+      const px = rightEdge - poopW - i * poopGap; // 右詰めで左へ増えていく
       for (const c of poop.cells) {
         ctx.fillStyle = c.color;
         ctx.fillRect(px + c.x * poopSize, py + c.y * poopSize, poopSize, poopSize);
       }
-      px += poopGap;
     }
   }
 }

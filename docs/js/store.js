@@ -12,11 +12,11 @@ import {
 } from './lib/streak.js';
 import { todayStr, addDays } from './lib/dates.js';
 import {
-  balance, locate, totalTiles, effectiveMoveCost, heroStats,
+  balance, locate, totalTiles, effectiveMoveCost, heroAttack, defeatCost,
   applyMove, buyItem, equipItem,
 } from './lib/game.js';
 import {
-  createPet, applyDailyDecay, feed, play, checkEvolution, cleanPoop, SPECIES,
+  createPet, applyDecay, feed, play, checkEvolution, cleanPoop, SPECIES,
 } from './lib/pet.js';
 
 export const WEEKDAY_JP = ['日', '月', '火', '水', '木', '金', '土'];
@@ -91,25 +91,25 @@ function ensureShape(data) {
   return { data, changed };
 }
 
-// 前回読み込み時からの経過日数ぶん、ペットの状態を減衰させる。
-function tickPet(data, today) {
+// 前回読み込み以降に過ぎた時刻チェックポイントぶん、ペットの状態を減衰させる。
+function tickPet(data, now) {
   if (!data.pet) return false;
   const before = data.pet;
-  const after = applyDailyDecay(before, today, data.config.pet);
+  const after = applyDecay(before, now, data.config.pet);
   if (after === before) return false;
   data.pet = after;
   return true;
 }
 
 function load() {
-  const today = todayStr();
+  const now = new Date();
   try {
     const text = localStorage.getItem(KEY);
     if (text) {
       const parsed = JSON.parse(text);
       if (parsed && Array.isArray(parsed.children)) {
         const { data, changed } = ensureShape(parsed);
-        const ticked = tickPet(data, today);
+        const ticked = tickPet(data, now);
         if (changed || ticked) save(data);
         return data;
       }
@@ -160,7 +160,6 @@ export function addTask(body) {
     title: String(body.title || '').trim(),
     icon: body.icon || '⭐',
     points: Number(body.points) || 0,
-    targetCount: Math.max(1, Number(body.targetCount) || 1),
     kind,
     days: kind === 'routine' ? (Array.isArray(body.days) ? body.days.map(Number) : []) : undefined,
     date: kind === 'spot' ? (body.date || todayStr()) : undefined,
@@ -196,7 +195,6 @@ export function updateTask(id, body) {
   task.title = title;
   task.icon = body.icon || '⭐';
   task.points = Number(body.points) || 0;
-  task.targetCount = Math.max(1, Number(body.targetCount) || 1);
   task.kind = kind;
   if (kind === 'routine') {
     const days = Array.isArray(body.days) ? body.days.map(Number) : [];
@@ -218,10 +216,10 @@ export function getTaskHistory(taskId, today = todayStr()) {
   if (!task) return null;
   return {
     task,
-    targetCount: task.targetCount || 1,
     countByDate: taskCountByDate(task, data.completions),
     streak: taskStreak(task, data.completions, today),
     total: taskTotalCount(task, data.completions),
+    todayCount: (taskCountByDate(task, data.completions)[today]) || 0,
     today,
   };
 }
@@ -232,19 +230,17 @@ export function getToday(childId, date = todayStr()) {
   const data = load();
   const expanded = expandForDay(data.tasks, childId, date);
   const items = withCompletionState(expanded, data.completions, childId, date);
-  // 各タスクの回数の進捗と継続（炎カウンター）を合成する。
+  // その日の達成回数（何回タップしたか）と継続（炎カウンター）を合成する。
   const enriched = items.map((item) => {
     const task = data.tasks.find((t) => t.id === item.id);
-    const target = task?.targetCount || 1;
     const dayComps = data.completions.filter(
       (c) => c.taskId === item.id && c.childId === childId && c.date === date,
     );
     const doneCount = dayComps.length;
     return {
       ...item,
-      targetCount: target,
       doneCount,
-      done: doneCount >= target,
+      done: doneCount >= 1,
       lastCompletionId: doneCount > 0 ? dayComps[dayComps.length - 1].id : null,
       streak: task ? taskStreak(task, data.completions, date) : 0,
       total: task ? taskTotalCount(task, data.completions) : 0,
@@ -263,14 +259,7 @@ export function addCompletion({ taskId, childId, date = todayStr() }) {
   const child = data.children.find((c) => c.id === childId);
   if (!child) throw new Error('child not found');
 
-  // その日の目標回数（targetCount）まではくり返し達成できる。満杯なら何もしない。
-  const target = task.targetCount || 1;
-  const sameDay = data.completions.filter(
-    (c) => c.taskId === taskId && c.childId === childId && c.date === date,
-  );
-  if (sameDay.length >= target) {
-    return { ok: false, reason: 'full', child, leveledUp: false, newBadges: [], coinsGained: 0, iceCreamsGained: 0 };
-  }
+  // 何回でも達成できる（タップするたびに1回ぶん記録・ポイント加算）。
 
   // アイス発行のため、追加前のこのタスクのストリークを控えておく。
   const streakBefore = taskStreak(task, data.completions, date);
@@ -352,24 +341,34 @@ export function getGameView() {
     inventory: g.inventory || [],
     equipped: g.equipped || {},
     shop: data.config.game.shop,
-    heroStats: heroStats(g, data.config),
+    heroAttack: heroAttack(g, data.config),
     config: data.config,
     game: g,
   };
 }
 
-// バトルで勝った時に、モンスターを倒し済みにして報酬を渡す。
-export function defeatMonster(monsterId, reward) {
+// あるモンスターを倒すのに今いくらかかるか（装備で安くなる）。
+export function monsterDefeatCost(monster) {
   const data = load();
-  if (!data.game.defeatedMonsters.includes(monsterId)) {
-    data.game.defeatedMonsters.push(monsterId);
+  return defeatCost(monster, data.game, data.config);
+}
+
+// コインを払ってモンスターを倒す。装備のこうげき力ぶんコストが安くなる。
+export function defeatMonster(monster) {
+  const data = load();
+  const cost = defeatCost(monster, data.game, data.config);
+  if (balance(data.game) < cost) return { ok: false, reason: 'not-enough', cost };
+  data.game.coinsSpent = (data.game.coinsSpent || 0) + cost;
+  if (!data.game.defeatedMonsters.includes(monster.id)) {
+    data.game.defeatedMonsters.push(monster.id);
   }
-  if (reward?.coins) data.game.coinsEarned = (data.game.coinsEarned || 0) + reward.coins;
-  if (reward?.item && !data.game.inventory.includes(reward.item)) {
+  const reward = monster.reward || {};
+  if (reward.coins) data.game.coinsEarned = (data.game.coinsEarned || 0) + reward.coins;
+  if (reward.item && !data.game.inventory.includes(reward.item)) {
     data.game.inventory.push(reward.item);
   }
   save(data);
-  return { ok: true, game: data.game };
+  return { ok: true, cost, reward, game: data.game };
 }
 
 export function advance() {
@@ -412,7 +411,7 @@ export function adoptPet(speciesId) {
   const data = load();
   if (data.pet) throw new Error('すでにペットを育てています');
   if (!SPECIES.some((s) => s.id === speciesId)) throw new Error('species not found');
-  data.pet = createPet(speciesId, todayStr());
+  data.pet = createPet(speciesId);
   save(data);
   return data.pet;
 }

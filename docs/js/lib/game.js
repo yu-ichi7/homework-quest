@@ -38,10 +38,9 @@ export function locate(position, config) {
   };
 }
 
-// あるマスに宝箱/イベント/モンスターがあるか。
+// あるマスに宝箱/モンスターがあるか。
 export function tileInfo(area, localTile, openedChests = [], defeatedMonsters = []) {
   const chest = (area.chests || []).find((c) => c.tile === localTile) || null;
-  const event = (area.events || []).find((e) => e.tile === localTile) || null;
   const monster = (area.monsters || []).find((m) => m.tile === localTile) || null;
   const chestId = chest ? `${area.id}:${localTile}` : null;
   const monsterId = monster ? `${area.id}:${localTile}` : null;
@@ -49,7 +48,6 @@ export function tileInfo(area, localTile, openedChests = [], defeatedMonsters = 
     chest,
     chestId,
     chestOpened: chestId ? openedChests.includes(chestId) : false,
-    event,
     monster,
     monsterId,
     monsterDefeated: monsterId ? defeatedMonsters.includes(monsterId) : false,
@@ -78,16 +76,17 @@ export function chestCoinBonus(game, config) {
   );
 }
 
-// 装備込みのバトル用ステータス（こうげき力・ぼうぎょ力・たいりょく）。
-export function heroStats(game, config) {
+// 装備込みのこうげき力（基本＋装備の atk 合計）。相手を倒すコストを下げるのに使う。
+export function heroAttack(game, config) {
   const items = equippedItems(game, config);
   const atk = items.reduce((s, it) => s + (it.atk || 0), 0);
-  const def = items.reduce((s, it) => s + (it.def || 0), 0);
-  return {
-    atk: config.game.baseAtk + atk,
-    def: config.game.baseDef + def,
-    hp: config.game.baseHp,
-  };
+  return config.game.baseAtk + atk;
+}
+
+// モンスターを倒すのに必要なコイン数。こうげき力ぶん安くなるが、下限あり。
+export function defeatCost(monster, game, config) {
+  const floor = Math.ceil(monster.cost * (config.game.monsterMinCostRatio ?? 0.25));
+  return Math.max(floor, monster.cost - heroAttack(game, config));
 }
 
 // ---- 進む ----
@@ -122,7 +121,6 @@ export function applyMove(game, config) {
     position: next.position,
     area: loc.area,
     localTile: loc.localTile,
-    event: info.event ? info.event.text : null,
     chestReward: null,
     monsterEncounter: (info.monster && !info.monsterDefeated)
       ? { ...info.monster, id: info.monsterId }

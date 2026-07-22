@@ -39,26 +39,26 @@
 
       <section class="panel">
         <div class="retro-frame">
-          <canvas id="map-canvas" width="320" height="120"></canvas>
+          <canvas id="map-canvas" width="480" height="220"></canvas>
         </div>
-        <button class="btn" id="advance-btn" style="width:100%; margin-top:12px">すすむ（🪙 <span id="move-cost">-</span>）</button>
+        <button class="btn" id="advance-btn" style="width:100%; margin-top:12px">進む（🪙 <span id="move-cost">-</span>）</button>
         <p id="move-msg" class="level-sub"></p>
       </section>
 
       <section class="panel">
-        <h2>そうび</h2>
+        <h2>装備</h2>
         <div class="equip-row" id="equip-row"></div>
       </section>
 
       <section class="panel">
-        <h2>おみせ</h2>
+        <h2>店</h2>
         <div id="shop-list"></div>
       </section>
     </div>
 
     <div id="tab-pet" class="game-tab" hidden>
       <section class="panel" id="pet-picker-panel" hidden>
-        <h2>そだてる子をえらぶ</h2>
+        <h2>育てる子を選ぶ</h2>
         <div id="pet-picker"></div>
       </section>
 
@@ -73,22 +73,22 @@
         </div>
         <p class="level-sub" id="pet-flavor"></p>
         <div class="field">
-          <label>おなか</label>
+          <label>お腹</label>
           <div class="xpbar"><span id="pet-hunger-fill" style="width:0%"></span></div>
         </div>
         <div class="field">
-          <label>なかよし度</label>
+          <label>仲良し度</label>
           <div class="xpbar"><span id="pet-happy-fill" style="width:0%"></span></div>
         </div>
         <div class="row">
           <button class="btn" id="pet-feed-btn">ごはん（🪙 <span id="pet-feed-cost">-</span>）</button>
-          <button class="btn secondary" id="pet-play-btn">あそぶ</button>
+          <button class="btn secondary" id="pet-play-btn">遊ぶ</button>
         </div>
         <button class="btn secondary" id="pet-clean-btn" style="width:100%; margin-top:8px">
-          おそうじ（🪙 <span id="pet-clean-cost">-</span>）
+          掃除（🪙 <span id="pet-clean-cost">-</span>）
         </button>
         <p id="pet-msg" class="level-sub"></p>
-        <button class="btn secondary" id="pet-graduate-btn" style="width:100%; margin-top:8px" hidden>そつぎょうさせる</button>
+        <button class="btn secondary" id="pet-graduate-btn" style="width:100%; margin-top:8px" hidden>卒業させる</button>
       </section>
 
       <section class="panel">
@@ -113,20 +113,11 @@
       <div class="retro-frame">
         <canvas id="battle-monster-canvas" width="100" height="100"></canvas>
       </div>
-      <div class="battle-hp-row">
-        <div class="battle-hp">
-          <div class="battle-hp-label">ゆうしゃ <span id="battle-hero-hp-text">-</span></div>
-          <div class="xpbar"><span id="battle-hero-hp-fill" style="width:100%"></span></div>
-        </div>
-        <div class="battle-hp">
-          <div class="battle-hp-label">あいて <span id="battle-monster-hp-text">-</span></div>
-          <div class="xpbar"><span id="battle-monster-hp-fill" class="danger" style="width:100%"></span></div>
-        </div>
-      </div>
+      <p class="level-sub">あなたの攻撃力：<span id="battle-attack-power">-</span></p>
       <p id="battle-msg" class="level-sub"></p>
       <div class="row">
-        <button id="battle-attack-btn">こうげきする</button>
-        <button class="btn secondary" id="battle-close-btn" hidden>とじる</button>
+        <button id="battle-defeat-btn">倒す（🪙 <span id="battle-defeat-cost">-</span>）</button>
+        <button class="btn secondary" id="battle-flee-btn">にげる</button>
       </div>
     </div>
   </div>

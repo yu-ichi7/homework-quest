@@ -1,8 +1,7 @@
 // ペット育成（たまごっち系）の純粋ロジック。localStorage やDOMには触れない。
-import { addDays, todayStr } from './dates.js';
 import { rowsToCells } from './game.js';
 
-export const STAGE_NAMES = ['あかちゃん', '少年', '成体'];
+export const STAGE_NAMES = ['赤ちゃん', '少年', '成体'];
 
 export const SPECIES = [
   { id: 'axolotl', name: 'ピンク', spriteBase: 'axolotl' },
@@ -127,7 +126,7 @@ export function bodyScaleFor(pet) {
 
 // ---- ペットの状態 ----
 
-export function createPet(speciesId, today = todayStr()) {
+export function createPet(speciesId, now = new Date()) {
   return {
     species: speciesId,
     stage: 0,
@@ -137,33 +136,60 @@ export function createPet(speciesId, today = todayStr()) {
     careCount: 0,
     neglectDays: 0,
     poopCount: 0,
-    lastTick: today,
-    adoptedAt: new Date().toISOString(),
+    lastTick: now.toISOString(),
+    adoptedAt: now.toISOString(),
   };
 }
 
-// 前回チェック日から今日までの経過日数ぶん、なでこ・なかよし度を減衰させる。
-// うんちも1日ごとに増え（上限あり）、たまっているとなかよし度の減りが早くなる。
-// どちらかが neglectThreshold 未満だった日を neglectDays に積む（純粋関数）。
-export function applyDailyDecay(pet, today, config) {
-  if (pet.lastTick === today) return pet;
-  const { hunger: dHunger, happiness: dHappy } = config.decayPerDay;
+// lastTick を Date に変換する。古いデータ（'YYYY-MM-DD' の日付のみ）にも対応。
+function parseTick(ts) {
+  if (!ts) return null;
+  if (String(ts).includes('T')) return new Date(ts);
+  const [y, m, d] = ts.split('-').map(Number);
+  return new Date(y, m - 1, d, 0, 0, 0, 0);
+}
+
+// 前回チェック以降に過ぎた「時刻チェックポイント（朝6・昼12・午後3・夕方6）」ごとに、
+// お腹・仲良し度を少しずつ減らす。うんちは1日（朝6時）ごとに増え、たまっていると
+// 仲良し度の減りが早くなる。低ステータスのチェックポイント数を neglectDays に積む（純粋関数）。
+export function applyDecay(pet, now, config) {
+  const last = parseTick(pet.lastTick);
+  const checkpoints = config.checkpoints || [6, 12, 15, 18];
+  const { hunger: dHunger, happiness: dHappy } = config.decayPerCheckpoint;
+
   let hunger = pet.hunger;
   let happiness = pet.happiness;
   let neglectDays = pet.neglectDays;
   let poopCount = pet.poopCount || 0;
-  let cursor = pet.lastTick;
-  while (cursor < today) {
-    hunger = Math.max(0, hunger - dHunger);
-    const poopPenalty = poopCount * (config.poopHappinessPenalty || 0);
-    happiness = Math.max(0, happiness - dHappy - poopPenalty);
-    poopCount = Math.min(config.maxPoop ?? 5, poopCount + (config.poopPerDay ?? 1));
-    if (hunger < config.neglectThreshold || happiness < config.neglectThreshold) {
-      neglectDays += 1;
+  let changed = false;
+
+  if (last) {
+    const cur = new Date(last.getFullYear(), last.getMonth(), last.getDate(), 0, 0, 0, 0);
+    let guard = 0;
+    while (cur <= now && guard < 400) {
+      for (const h of checkpoints) {
+        const cp = new Date(cur.getFullYear(), cur.getMonth(), cur.getDate(), h, 0, 0, 0);
+        if (cp > last && cp <= now) {
+          hunger = Math.max(0, hunger - dHunger);
+          const poopPenalty = poopCount * (config.poopHappinessPenalty || 0);
+          happiness = Math.max(0, happiness - dHappy - poopPenalty);
+          if (h === checkpoints[0]) {
+            poopCount = Math.min(config.maxPoop ?? 5, poopCount + (config.poopPerDay ?? 1));
+          }
+          if (hunger < config.neglectThreshold || happiness < config.neglectThreshold) {
+            neglectDays += 1;
+          }
+          changed = true;
+        }
+      }
+      cur.setDate(cur.getDate() + 1);
+      guard += 1;
     }
-    cursor = addDays(cursor, 1);
   }
-  return { ...pet, hunger, happiness, neglectDays, poopCount, lastTick: today };
+
+  // 何も減っていなくても、古い日付形式なら ISO 形式へ移行しておく。
+  if (!changed && String(pet.lastTick).includes('T')) return pet;
+  return { ...pet, hunger, happiness, neglectDays, poopCount, lastTick: now.toISOString() };
 }
 
 // おそうじ（1回で1つ減らす）。もう汚れていなければ何もしない。

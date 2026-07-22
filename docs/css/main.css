@@ -202,10 +202,24 @@ body {
 .row { display: flex; gap: 10px; align-items: center; }
 .row > * { flex: 1; }
 
-/* アイコンパレット */
-.icon-pick { display: flex; flex-wrap: wrap; gap: 6px; margin-bottom: 8px; }
+/* アイコン ドロップダウン */
+.icon-dropdown { position: relative; margin-bottom: 8px; }
+.icon-dropdown-btn {
+  display: flex; align-items: center; gap: 10px;
+  border: 2px solid var(--line); background: var(--card); border-radius: 12px;
+  padding: 8px 14px; cursor: pointer; font-family: inherit;
+}
+.icon-dropdown-btn .icon-current { font-size: 24px; }
+.icon-dropdown-btn .icon-caret { color: var(--muted); font-size: 12px; }
+.icon-panel {
+  position: absolute; z-index: 20; top: calc(100% + 6px); left: 0;
+  display: flex; flex-wrap: wrap; gap: 6px;
+  background: var(--card); border: 2px solid var(--line); border-radius: 12px;
+  padding: 10px; box-shadow: var(--shadow); max-width: 320px;
+}
+.icon-panel[hidden] { display: none; }
 .icon-opt {
-  border: 2px solid var(--line); background: var(--card); border-radius: 10px;
+  border: 2px solid transparent; background: var(--bg); border-radius: 10px;
   width: 40px; height: 40px; font-size: 20px; cursor: pointer; padding: 0;
 }
 .icon-opt.active { border-color: var(--accent); background: var(--accent-soft); transform: scale(1.05); }
@@ -223,12 +237,12 @@ body {
 .task-row .meta .sub { color: var(--muted); font-size: 12px; }
 
 /* カレンダー */
-.cal { display: grid; grid-template-columns: repeat(7, 1fr); gap: 4px; }
-.cal .dow { text-align: center; font-size: 12px; color: var(--muted); font-weight: 700; padding: 4px 0; }
+.cal { display: grid; grid-template-columns: repeat(7, minmax(0, 1fr)); gap: 4px; }
+.cal .dow { text-align: center; font-size: 12px; color: var(--muted); font-weight: 700; padding: 4px 0; min-width: 0; }
 .cal .cell {
-  aspect-ratio: 1; border-radius: 10px; background: var(--bg);
+  aspect-ratio: 1; border-radius: 10px; background: var(--bg); min-width: 0;
   display: flex; flex-direction: column; align-items: center; justify-content: center;
-  font-size: 13px; position: relative;
+  font-size: 12px; position: relative; overflow: hidden;
 }
 .cal .cell.empty { background: transparent; }
 .cal .cell.done { background: var(--good-soft); color: #166534; font-weight: 800; }

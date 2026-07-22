@@ -41,31 +41,45 @@ function buildDayPicker() {
 }
 
 function buildIconPicker() {
-  const el = document.getElementById('f-icon-pick');
-  el.innerHTML = '';
+  const panel = document.getElementById('f-icon-pick');
+  panel.innerHTML = '';
   for (const ic of TASK_ICONS) {
     const btn = document.createElement('button');
     btn.type = 'button';
     btn.className = 'icon-opt';
     btn.textContent = ic;
-    btn.onclick = () => setIcon(ic);
-    el.appendChild(btn);
+    btn.onclick = () => { setIcon(ic); closeIconPanel(); };
+    panel.appendChild(btn);
   }
+  // ドロップダウンの開閉。
+  document.getElementById('f-icon-btn').onclick = (e) => {
+    e.stopPropagation();
+    panel.hidden = !panel.hidden;
+  };
+  // 外側をタップしたら閉じる。
+  document.addEventListener('click', (e) => {
+    if (!e.target.closest('.icon-dropdown')) closeIconPanel();
+  });
   // 自由入力欄で打った絵文字も選択として反映する。
   document.getElementById('f-icon').oninput = (e) => {
     const v = [...(e.target.value || '')][0];
-    if (v) { state.icon = v; highlightIcon(); }
+    if (v) { state.icon = v; refreshIconUI(); }
   };
   setIcon(state.icon);
+}
+
+function closeIconPanel() {
+  document.getElementById('f-icon-pick').hidden = true;
 }
 
 function setIcon(ic) {
   state.icon = ic;
   document.getElementById('f-icon').value = '';
-  highlightIcon();
+  refreshIconUI();
 }
 
-function highlightIcon() {
+function refreshIconUI() {
+  document.getElementById('f-icon-current').textContent = state.icon;
   document.querySelectorAll('#f-icon-pick .icon-opt').forEach((b) => {
     b.classList.toggle('active', b.textContent === state.icon);
   });
@@ -90,7 +104,6 @@ function handleSubmitTask() {
     title: document.getElementById('f-title').value,
     icon: freeIcon || state.icon || '⭐',
     points: Number(document.getElementById('f-points').value) || 0,
-    targetCount: Number(document.getElementById('f-count').value) || 1,
     kind,
   };
   if (kind === 'routine') {
@@ -122,7 +135,6 @@ function enterEditMode(task) {
   document.getElementById('f-title').value = task.title;
   setIcon(task.icon || '📚');
   document.getElementById('f-points').value = task.points;
-  document.getElementById('f-count').value = task.targetCount || 1;
   document.getElementById('f-kind').value = task.kind;
   const isSpot = task.kind === 'spot';
   document.getElementById('days-field').hidden = isSpot;
@@ -146,7 +158,6 @@ function exitEditMode() {
   document.getElementById('f-title').value = '';
   setIcon('📚');
   document.getElementById('f-points').value = 10;
-  document.getElementById('f-count').value = 1;
   document.getElementById('f-kind').value = 'routine';
   document.getElementById('days-field').hidden = false;
   document.getElementById('date-field').hidden = true;
@@ -173,12 +184,11 @@ function taskRow(t) {
   const schedule = t.kind === 'routine'
     ? (t.days || []).map((d) => WEEKDAY_JP[d]).join('・')
     : t.date;
-  const countLabel = (t.targetCount || 1) > 1 ? ` ・ ×${t.targetCount}回` : '';
   row.innerHTML = `
     <div class="icon">${t.icon || '⭐'}</div>
     <div class="meta">
       <div class="name">${t.title}</div>
-      <div class="sub">${schedule} ・ ${t.points}ポイント${countLabel}</div>
+      <div class="sub">${schedule} ・ ${t.points}ポイント</div>
     </div>`;
   const hist = document.createElement('button');
   hist.className = 'btn small secondary';
