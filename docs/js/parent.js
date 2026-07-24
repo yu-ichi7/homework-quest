@@ -191,18 +191,21 @@ function taskRow(t) {
       <div class="sub">${schedule} ・ ${t.points}ポイント</div>
     </div>`;
   const hist = document.createElement('button');
-  hist.className = 'btn small secondary';
-  hist.textContent = '履歴';
+  hist.className = 'row-icon-btn';
+  hist.textContent = '📈';
+  hist.title = '履歴を見る';
   hist.onclick = () => { location.href = `./task.html?id=${encodeURIComponent(t.id)}`; };
   row.appendChild(hist);
   const edit = document.createElement('button');
-  edit.className = 'btn small secondary';
-  edit.textContent = '編集';
+  edit.className = 'row-icon-btn';
+  edit.textContent = '✏️';
+  edit.title = '編集';
   edit.onclick = () => enterEditMode(t);
   row.appendChild(edit);
   const del = document.createElement('button');
-  del.className = 'btn danger small';
-  del.textContent = '削除';
+  del.className = 'row-icon-btn danger';
+  del.textContent = '🗑';
+  del.title = '削除';
   del.onclick = () => {
     if (!confirm(`「${t.title}」を削除しますか？`)) return;
     if (state.editingId === t.id) exitEditMode();

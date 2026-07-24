@@ -69,42 +69,34 @@ function refresh() {
   }
 }
 
-// タスクの継続を炎バッジ＋累計で表す。
-function streakHtml(item) {
-  if (!item.total || item.total === 0) return '';
+// サブ情報はチップ1行に収める（チェックしても行数が増えないように）。
+function subHtml(item) {
+  const chips = [`<span class="t-pt">+${item.points}pt</span>`];
+  if (item.doneCount > 0) chips.push(`<span class="t-today-count">今日${item.doneCount}回</span>`);
   const tier = flameTier(item.streak);
-  if (tier === 0) {
-    // 最近は途切れているが累計はある。
-    return `<div class="t-streak"><span class="t-total">累計 ${item.total}回</span></div>`;
-  }
-  return `<div class="t-streak">
-      <span class="flame flame-${tier}">🔥 ${item.streak}日れんぞく</span>
-      <span class="t-total">累計 ${item.total}回</span>
-    </div>`;
+  if (tier > 0) chips.push(`<span class="flame flame-${tier}">🔥${item.streak}日</span>`);
+  if (item.total > 0) chips.push(`<span class="t-total">計${item.total}回</span>`);
+  return `<div class="t-sub">${chips.join('')}</div>`;
 }
 
 function taskCard(item) {
   const card = document.createElement('div');
   card.className = 'task-card' + (item.done ? ' done' : '');
 
-  // チェック丸：やった回数を表示（0回なら空、1回以上で回数、達成済みは緑）。
+  // チェック丸：やった回数を表示（0回なら空、1回以上で回数）。
   const checkInner = item.doneCount > 0 ? `${item.doneCount}` : '';
-  const pointsLabel = item.doneCount > 0
-    ? `+${item.points} ポイント（今日 ${item.doneCount}回）`
-    : `+${item.points} ポイント`;
 
   card.innerHTML = `
-    <div class="t-icon">${item.icon || '⭐'}</div>
+    <div class="t-icon" title="履歴を見る">${item.icon || '⭐'}</div>
     <div class="t-body">
       <div class="t-title">${item.title}</div>
-      <div class="t-points">${pointsLabel}</div>
-      ${streakHtml(item)}
+      ${subHtml(item)}
     </div>
-    <button class="t-history" title="履歴を見る">📈</button>
     ${item.doneCount > 0 ? '<button class="t-undo" title="1回もどす">−</button>' : ''}
     <div class="t-check${item.doneCount > 0 ? ' count' : ''}">${checkInner}</div>`;
 
-  card.querySelector('.t-history').onclick = (e) => {
+  // アイコンタップで履歴ページへ（カード本体タップ=+1 と分離）。
+  card.querySelector('.t-icon').onclick = (e) => {
     e.stopPropagation();
     location.href = `./task.html?id=${encodeURIComponent(item.id)}`;
   };
