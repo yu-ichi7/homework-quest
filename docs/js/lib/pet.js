@@ -207,6 +207,21 @@ export function feed(pet) {
   };
 }
 
+// ごちそう。お腹・仲良し度を大きく回復し、お世話回数も多めにカウントする。
+// 両方満タンのときはカウントしない（無駄うち防止）。
+export function treat(pet, effect) {
+  if (pet.hunger >= 100 && pet.happiness >= 100) return { pet, counted: false };
+  return {
+    pet: {
+      ...pet,
+      hunger: Math.min(100, pet.hunger + (effect.hunger || 0)),
+      happiness: Math.min(100, pet.happiness + (effect.happiness || 0)),
+      careCount: pet.careCount + (effect.care || 1),
+    },
+    counted: true,
+  };
+}
+
 // あそぶ（無料）。
 export function play(pet) {
   if (pet.happiness >= 100) return { pet, counted: false };

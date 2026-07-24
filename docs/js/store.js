@@ -16,7 +16,7 @@ import {
   applyMove, buyItem, equipItem,
 } from './lib/game.js';
 import {
-  createPet, applyDecay, feed, play, checkEvolution, cleanPoop, SPECIES,
+  createPet, applyDecay, feed, treat, play, checkEvolution, cleanPoop, SPECIES,
 } from './lib/pet.js';
 
 export const WEEKDAY_JP = ['日', '月', '火', '水', '木', '金', '土'];
@@ -60,6 +60,8 @@ function ensureShape(data) {
     for (const [k, v] of Object.entries(DEFAULT_CONFIG.pet)) {
       if (data.config.pet[k] === undefined) { data.config.pet[k] = v; changed = true; }
     }
+    // ごはんの旧価格（5）は新価格へ引き上げる（一度きりのマイグレーション）。
+    if (data.config.pet.feedCost === 5) { data.config.pet.feedCost = DEFAULT_CONFIG.pet.feedCost; changed = true; }
   }
 
   if (!data.game) {
@@ -402,6 +404,7 @@ export function getPetView() {
     album: data.petAlbum,
     species: SPECIES,
     feedCost: data.config.pet.feedCost,
+    treatCost: data.config.pet.treatCost,
     cleanCost: data.config.pet.cleanCost,
     careToEvolve: data.config.pet.careToEvolve,
   };
@@ -425,6 +428,21 @@ export function feedPet() {
   if (!counted) return { ok: false, reason: 'full' };
   data.game.coinsSpent = (data.game.coinsSpent || 0) + cost;
   const { pet: evolvedPet, evolved } = checkEvolution(fed, data.config.pet);
+  data.pet = evolvedPet;
+  save(data);
+  return { ok: true, pet: data.pet, evolved };
+}
+
+// ごちそう。コインは多めにかかるが、両ステータスが大きく回復しお世話も進む。
+export function treatPet() {
+  const data = load();
+  if (!data.pet) return { ok: false, reason: 'no-pet' };
+  const cost = data.config.pet.treatCost;
+  if (balance(data.game) < cost) return { ok: false, reason: 'not-enough', cost };
+  const { pet: treated, counted } = treat(data.pet, data.config.pet.treatEffect);
+  if (!counted) return { ok: false, reason: 'full' };
+  data.game.coinsSpent = (data.game.coinsSpent || 0) + cost;
+  const { pet: evolvedPet, evolved } = checkEvolution(treated, data.config.pet);
   data.pet = evolvedPet;
   save(data);
   return { ok: true, pet: data.pet, evolved };

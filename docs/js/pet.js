@@ -1,5 +1,5 @@
 import {
-  getPetView, adoptPet, feedPet, playPet, graduatePet, cleanPetPoop,
+  getPetView, adoptPet, feedPet, treatPet, playPet, graduatePet, cleanPetPoop,
 } from './store.js';
 import {
   STAGE_NAMES, spriteKeyFor, petSpriteToCells, sadMarkCells, poopCells, bodyScaleFor,
@@ -14,6 +14,7 @@ const wander = { x: 0, targetX: 0, waitUntil: 0 };
 
 function init() {
   document.getElementById('pet-feed-btn').onclick = handleFeed;
+  document.getElementById('pet-treat-btn').onclick = handleTreat;
   document.getElementById('pet-play-btn').onclick = handlePlay;
   document.getElementById('pet-clean-btn').onclick = handleClean;
   document.getElementById('pet-graduate-btn').onclick = handleGraduate;
@@ -109,6 +110,7 @@ function renderCare(view) {
   document.getElementById('pet-happy-fill').style.width = `${pet.happiness}%`;
   document.getElementById('pet-flavor').textContent = flavorText(pet);
   document.getElementById('pet-feed-cost').textContent = feedCost;
+  document.getElementById('pet-treat-cost').textContent = view.treatCost;
   document.getElementById('pet-clean-cost').textContent = cleanCost;
   document.getElementById('pet-clean-btn').textContent = `掃除（🪙 ${cleanCost}）${pet.poopCount > 0 ? ` ×${pet.poopCount}` : ''}`;
 
@@ -131,6 +133,19 @@ function handleFeed() {
     return;
   }
   msg.textContent = '';
+  render();
+  if (res.evolved) celebrateEvolution(res.pet);
+}
+
+function handleTreat() {
+  const res = treatPet();
+  const msg = document.getElementById('pet-msg');
+  if (!res.ok) {
+    msg.textContent = res.reason === 'not-enough' ? '🪙が足りません'
+      : res.reason === 'full' ? 'もう満足みたい' : '';
+    return;
+  }
+  msg.textContent = '🍰 おいしい！';
   render();
   if (res.evolved) celebrateEvolution(res.pet);
 }

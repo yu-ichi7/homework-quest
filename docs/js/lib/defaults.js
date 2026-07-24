@@ -55,7 +55,9 @@ export const DEFAULT_GAME = {
 // ペット育成（たまごっち系）の既定パラメータ。
 // お腹・仲良し度は 1日4回（朝6時・昼12時・午後3時・夕方6時）に少しずつ減る。
 export const DEFAULT_PET = {
-  feedCost: 5,                                  // ごはん1回のコイン
+  feedCost: 8,                                  // ごはん1回のコイン
+  treatCost: 15,                                // ごちそう1回のコイン
+  treatEffect: { hunger: 50, happiness: 30, care: 2 }, // ごちそうの回復量とお世話カウント
   cleanCost: 3,                                 // おそうじ1回のコイン
   checkpoints: [6, 12, 15, 18],                 // 減衰が起きる時刻（時）
   decayPerCheckpoint: { hunger: 4, happiness: 3 }, // 1チェックポイントごとの減り
