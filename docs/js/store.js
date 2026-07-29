@@ -226,6 +226,24 @@ export function getTaskHistory(taskId, today = todayStr()) {
   };
 }
 
+// 記録ページ用。全タスクの継続・累計・最後にやった日をまとめて返す。
+export function getTaskSummaries(today = todayStr()) {
+  const data = load();
+  return data.tasks.map((task) => {
+    const counts = taskCountByDate(task, data.completions);
+    const dates = Object.keys(counts).sort();
+    return {
+      id: task.id,
+      title: task.title,
+      icon: task.icon,
+      kind: task.kind,
+      streak: taskStreak(task, data.completions, today),
+      total: taskTotalCount(task, data.completions),
+      lastDone: dates.length > 0 ? dates[dates.length - 1] : null,
+    };
+  });
+}
+
 // ---- 今日のタスク ----
 
 export function getToday(childId, date = todayStr()) {

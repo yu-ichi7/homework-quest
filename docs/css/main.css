@@ -244,6 +244,11 @@ body {
 .task-row .meta .name { font-weight: 700; }
 .task-row .meta .sub { color: var(--muted); font-size: 12px; }
 
+/* タップで詳細へ進む行（記録ページのタスク一覧） */
+.task-row.link { cursor: pointer; transition: background 0.15s; border-radius: 10px; }
+.task-row.link:active { background: var(--bg); }
+.task-row .row-chevron { color: var(--muted); font-size: 20px; flex: none; padding-left: 2px; }
+
 /* タスク行のアイコンだけの小ボタン（履歴・編集・削除） */
 .row-icon-btn {
   border: none; background: var(--bg); border-radius: 9px;

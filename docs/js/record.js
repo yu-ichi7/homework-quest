@@ -1,6 +1,7 @@
 import {
-  getChildren, getStats, getIceCream, useIceCream, WEEKDAY_JP,
+  getChildren, getStats, getIceCream, useIceCream, getTaskSummaries, WEEKDAY_JP,
 } from './store.js';
+import { flameTier } from './lib/streak.js';
 
 const state = { children: [], selectedId: null };
 
@@ -18,7 +19,43 @@ function refresh() {
   document.getElementById('s-month').textContent = `${stats.month.points}`;
   renderBars(stats.last7);
   renderCalendar(stats);
+  renderTaskSummaries();
   renderIceCream();
+}
+
+// ---- タスクごとの記録（タップで各タスクの履歴ページへ） ----
+
+function renderTaskSummaries() {
+  const el = document.getElementById('task-summaries');
+  const items = getTaskSummaries();
+  el.innerHTML = items.length ? '' : '<div class="empty">タスクがまだありません</div>';
+
+  for (const t of items) {
+    const row = document.createElement('div');
+    row.className = 'task-row link';
+
+    const chips = [];
+    const tier = flameTier(t.streak);
+    if (tier > 0) chips.push(`<span class="flame flame-${tier}">🔥${t.streak}日</span>`);
+    chips.push(`<span class="t-total">計${t.total}回</span>`);
+    if (t.lastDone) chips.push(`<span class="t-total">最後 ${formatShortDate(t.lastDone)}</span>`);
+    else chips.push('<span class="t-total">まだ記録なし</span>');
+
+    row.innerHTML = `
+      <div class="icon">${t.icon || '⭐'}</div>
+      <div class="meta">
+        <div class="name">${t.title}</div>
+        <div class="t-sub">${chips.join('')}</div>
+      </div>
+      <div class="row-chevron">›</div>`;
+    row.onclick = () => { location.href = `./task.html?id=${encodeURIComponent(t.id)}`; };
+    el.appendChild(row);
+  }
+}
+
+function formatShortDate(dateStr) {
+  const [, m, d] = dateStr.split('-').map(Number);
+  return `${m}/${d}`;
 }
 
 // ---- アイスクリームバッジ棚 ----
