@@ -62,6 +62,11 @@ function ensureShape(data) {
     }
     // ごはんの旧価格（5）は新価格へ引き上げる（一度きりのマイグレーション）。
     if (data.config.pet.feedCost === 5) { data.config.pet.feedCost = DEFAULT_CONFIG.pet.feedCost; changed = true; }
+    // お腹の減りが旧設定（4）なら新しい速さへ（成長ポイント制に合わせた調整）。
+    if (data.config.pet.decayPerCheckpoint?.hunger === 4) {
+      data.config.pet.decayPerCheckpoint.hunger = DEFAULT_CONFIG.pet.decayPerCheckpoint.hunger;
+      changed = true;
+    }
   }
 
   if (!data.game) {
@@ -85,6 +90,12 @@ function ensureShape(data) {
 
   if (data.pet === undefined) { data.pet = null; changed = true; }
   if (data.pet && data.pet.poopCount === undefined) { data.pet.poopCount = 0; changed = true; }
+  // 旧「お世話回数」から成長ポイントへ移行（1回のお世話 ≒ 成長3）。
+  if (data.pet && data.pet.growth === undefined) {
+    data.pet.growth = (data.pet.careCount || 0) * 3;
+    delete data.pet.careCount;
+    changed = true;
+  }
   if (!Array.isArray(data.petAlbum)) { data.petAlbum = []; changed = true; }
   if (!data.iceCream || typeof data.iceCream !== 'object') { data.iceCream = { earned: 0, used: 0 }; changed = true; }
   if (data.config.iceCreamStreak === undefined) { data.config.iceCreamStreak = DEFAULT_CONFIG.iceCreamStreak; changed = true; }
@@ -424,7 +435,7 @@ export function getPetView() {
     feedCost: data.config.pet.feedCost,
     treatCost: data.config.pet.treatCost,
     cleanCost: data.config.pet.cleanCost,
-    careToEvolve: data.config.pet.careToEvolve,
+    growthToEvolve: data.config.pet.growthToEvolve,
   };
 }
 
@@ -437,44 +448,44 @@ export function adoptPet(speciesId) {
   return data.pet;
 }
 
+// ごはん。満腹でもあげられる（成長は小さくなる）＝たくさんあげるほど早く育つ。
 export function feedPet() {
   const data = load();
   if (!data.pet) return { ok: false, reason: 'no-pet' };
   const cost = data.config.pet.feedCost;
   if (balance(data.game) < cost) return { ok: false, reason: 'not-enough', cost };
-  const { pet: fed, counted } = feed(data.pet);
-  if (!counted) return { ok: false, reason: 'full' };
+  const { pet: fed, gained, wasFull } = feed(data.pet, data.config.pet);
   data.game.coinsSpent = (data.game.coinsSpent || 0) + cost;
   const { pet: evolvedPet, evolved } = checkEvolution(fed, data.config.pet);
   data.pet = evolvedPet;
   save(data);
-  return { ok: true, pet: data.pet, evolved };
+  return { ok: true, pet: data.pet, evolved, gained, wasFull };
 }
 
-// ごちそう。コインは多めにかかるが、両ステータスが大きく回復しお世話も進む。
+// ごちそう。コインは多めにかかるが、両ステータスが大きく回復し成長も大きい。
 export function treatPet() {
   const data = load();
   if (!data.pet) return { ok: false, reason: 'no-pet' };
   const cost = data.config.pet.treatCost;
   if (balance(data.game) < cost) return { ok: false, reason: 'not-enough', cost };
-  const { pet: treated, counted } = treat(data.pet, data.config.pet.treatEffect);
-  if (!counted) return { ok: false, reason: 'full' };
+  const { pet: treated, gained, wasFull } = treat(data.pet, data.config.pet);
   data.game.coinsSpent = (data.game.coinsSpent || 0) + cost;
   const { pet: evolvedPet, evolved } = checkEvolution(treated, data.config.pet);
   data.pet = evolvedPet;
   save(data);
-  return { ok: true, pet: data.pet, evolved };
+  return { ok: true, pet: data.pet, evolved, gained, wasFull };
 }
 
+// あそぶ（無料）。仲良し度が満タンのときは成長しない（無限成長を防ぐ）。
 export function playPet() {
   const data = load();
   if (!data.pet) return { ok: false, reason: 'no-pet' };
-  const { pet: played, counted } = play(data.pet);
+  const { pet: played, counted, gained } = play(data.pet, data.config.pet);
   if (!counted) return { ok: false, reason: 'full' };
   const { pet: evolvedPet, evolved } = checkEvolution(played, data.config.pet);
   data.pet = evolvedPet;
   save(data);
-  return { ok: true, pet: data.pet, evolved };
+  return { ok: true, pet: data.pet, evolved, gained };
 }
 
 // うんちを1つ、コインを払って掃除する。
@@ -483,12 +494,13 @@ export function cleanPetPoop() {
   if (!data.pet) return { ok: false, reason: 'no-pet' };
   const cost = data.config.pet.cleanCost;
   if (balance(data.game) < cost) return { ok: false, reason: 'not-enough', cost };
-  const { pet: cleaned, cleaned: didClean } = cleanPoop(data.pet);
+  const { pet: cleanedPet, cleaned: didClean, gained } = cleanPoop(data.pet, data.config.pet);
   if (!didClean) return { ok: false, reason: 'clean' };
   data.game.coinsSpent = (data.game.coinsSpent || 0) + cost;
-  data.pet = cleaned;
+  const { pet: evolvedPet, evolved } = checkEvolution(cleanedPet, data.config.pet);
+  data.pet = evolvedPet;
   save(data);
-  return { ok: true, pet: data.pet };
+  return { ok: true, pet: data.pet, evolved, gained };
 }
 
 export function graduatePet() {

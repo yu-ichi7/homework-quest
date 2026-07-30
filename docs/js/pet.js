@@ -115,10 +115,16 @@ function renderCare(view) {
   document.getElementById('pet-clean-btn').textContent = `掃除（🪙 ${cleanCost}）${pet.poopCount > 0 ? ` ×${pet.poopCount}` : ''}`;
 
   const progress = document.getElementById('pet-progress');
+  const bar = document.getElementById('pet-growth-bar');
+  const fill = document.getElementById('pet-growth-fill');
   if (pet.stage < 2) {
-    progress.textContent = `次の姿まで：お世話 ${pet.careCount}/${view.careToEvolve[pet.stage]}`;
+    const need = view.growthToEvolve[pet.stage];
+    progress.textContent = `次の姿まで：成長 ${pet.growth}/${need}`;
+    bar.hidden = false;
+    fill.style.width = `${Math.min(100, Math.round((pet.growth / need) * 100))}%`;
   } else {
     progress.textContent = '成体になりました！';
+    bar.hidden = true;
   }
 
   document.getElementById('pet-graduate-btn').hidden = pet.stage !== 2;
@@ -128,11 +134,12 @@ function handleFeed() {
   const res = feedPet();
   const msg = document.getElementById('pet-msg');
   if (!res.ok) {
-    msg.textContent = res.reason === 'not-enough' ? '🪙が足りません'
-      : res.reason === 'full' ? 'もうお腹いっぱいみたい' : '';
+    msg.textContent = res.reason === 'not-enough' ? '🪙が足りません' : '';
     return;
   }
-  msg.textContent = '';
+  msg.textContent = res.wasFull
+    ? `お腹いっぱい…でも 成長+${res.gained}`
+    : `🍚 おいしい！ 成長+${res.gained}`;
   render();
   if (res.evolved) celebrateEvolution(res.pet);
 }
@@ -141,11 +148,12 @@ function handleTreat() {
   const res = treatPet();
   const msg = document.getElementById('pet-msg');
   if (!res.ok) {
-    msg.textContent = res.reason === 'not-enough' ? '🪙が足りません'
-      : res.reason === 'full' ? 'もう満足みたい' : '';
+    msg.textContent = res.reason === 'not-enough' ? '🪙が足りません' : '';
     return;
   }
-  msg.textContent = '🍰 おいしい！';
+  msg.textContent = res.wasFull
+    ? `お腹いっぱい…でも 成長+${res.gained}`
+    : `🍰 ごちそうだ！ 成長+${res.gained}`;
   render();
   if (res.evolved) celebrateEvolution(res.pet);
 }
@@ -157,7 +165,7 @@ function handlePlay() {
     msg.textContent = res.reason === 'full' ? 'もう十分仲良しみたい' : '';
     return;
   }
-  msg.textContent = '';
+  msg.textContent = `🎾 たのしい！ 成長+${res.gained}`;
   render();
   if (res.evolved) celebrateEvolution(res.pet);
 }
@@ -170,8 +178,9 @@ function handleClean() {
       : res.reason === 'clean' ? 'もう綺麗だよ' : '';
     return;
   }
-  msg.textContent = '✅ 綺麗になった';
+  msg.textContent = `✅ 綺麗になった 成長+${res.gained}`;
   render();
+  if (res.evolved) celebrateEvolution(res.pet);
 }
 
 function celebrateEvolution(pet) {

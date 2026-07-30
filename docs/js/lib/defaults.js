@@ -60,10 +60,12 @@ export const DEFAULT_PET = {
   treatEffect: { hunger: 50, happiness: 30, care: 2 }, // ごちそうの回復量とお世話カウント
   cleanCost: 3,                                 // おそうじ1回のコイン
   checkpoints: [6, 12, 15, 18],                 // 減衰が起きる時刻（時）
-  decayPerCheckpoint: { hunger: 4, happiness: 3 }, // 1チェックポイントごとの減り
+  decayPerCheckpoint: { hunger: 8, happiness: 3 }, // 1チェックポイントごとの減り
   neglectThreshold: 30,                         // これ未満なら「放置」チェックポイント
-  careToEvolve: [8, 14],                        // stage0→1, stage1→2 に必要なお世話回数
-  formNeglectLimit: 3,                          // 放置チェックポイントがこれ以下なら「元気」
+  growthToEvolve: [40, 70],                     // stage0→1, stage1→2 に必要な成長ポイント
+  // アクションごとの成長ポイント。満腹（Full）でも餌はあげられるが伸びは小さい。
+  growthPerAction: { feed: 3, feedFull: 1, treat: 8, treatFull: 3, play: 2, clean: 1 },
+  formNeglectLimit: 5,                          // 放置チェックポイントがこれ以下なら「元気」
   poopPerDay: 1,                                // 1日（朝6時）ごとに増えるうんちの数
   maxPoop: 5,                                   // うんちの上限
   poopHappinessPenalty: 1,                      // うんち1つあたり、仲良し度の減りが増える量

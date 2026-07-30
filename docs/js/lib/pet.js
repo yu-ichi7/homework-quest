@@ -133,7 +133,7 @@ export function createPet(speciesId, now = new Date()) {
     form: 'happy',
     hunger: 80,
     happiness: 80,
-    careCount: 0,
+    growth: 0,
     neglectDays: 0,
     poopCount: 0,
     lastTick: now.toISOString(),
@@ -193,55 +193,77 @@ export function applyDecay(pet, now, config) {
 }
 
 // おそうじ（1回で1つ減らす）。もう汚れていなければ何もしない。
-export function cleanPoop(pet) {
-  if ((pet.poopCount || 0) <= 0) return { pet, cleaned: false };
-  return { pet: { ...pet, poopCount: pet.poopCount - 1 }, cleaned: true };
-}
-
-// ごはん。満タンのときはお世話回数にカウントしない（無意味な連打での即進化を防ぐ）。
-export function feed(pet) {
-  if (pet.hunger >= 100) return { pet, counted: false };
+export function cleanPoop(pet, config) {
+  if ((pet.poopCount || 0) <= 0) return { pet, cleaned: false, gained: 0 };
+  const gained = config.growthPerAction.clean;
   return {
-    pet: { ...pet, hunger: Math.min(100, pet.hunger + 30), careCount: pet.careCount + 1 },
-    counted: true,
+    pet: { ...pet, poopCount: pet.poopCount - 1, growth: (pet.growth || 0) + gained },
+    cleaned: true,
+    gained,
   };
 }
 
-// ごちそう。お腹・仲良し度を大きく回復し、お世話回数も多めにカウントする。
-// 両方満タンのときはカウントしない（無駄うち防止）。
-export function treat(pet, effect) {
-  if (pet.hunger >= 100 && pet.happiness >= 100) return { pet, counted: false };
+// ごはん。満腹でもあげられる（そのぶん成長は小さい）＝たくさんあげるほど早く育つ。
+export function feed(pet, config) {
+  const g = config.growthPerAction;
+  const wasFull = pet.hunger >= 100;
+  const gained = wasFull ? g.feedFull : g.feed;
+  return {
+    pet: {
+      ...pet,
+      hunger: Math.min(100, pet.hunger + 30),
+      growth: (pet.growth || 0) + gained,
+    },
+    gained,
+    wasFull,
+  };
+}
+
+// ごちそう。お腹・仲良し度を大きく回復し、成長も大きい。満腹でもあげられる。
+export function treat(pet, config) {
+  const g = config.growthPerAction;
+  const effect = config.treatEffect || {};
+  const wasFull = pet.hunger >= 100 && pet.happiness >= 100;
+  const gained = wasFull ? g.treatFull : g.treat;
   return {
     pet: {
       ...pet,
       hunger: Math.min(100, pet.hunger + (effect.hunger || 0)),
       happiness: Math.min(100, pet.happiness + (effect.happiness || 0)),
-      careCount: pet.careCount + (effect.care || 1),
+      growth: (pet.growth || 0) + gained,
+    },
+    gained,
+    wasFull,
+  };
+}
+
+// あそぶ（無料）。無料なので満タン時は成長しない（連打での無限成長を防ぐ）。
+export function play(pet, config) {
+  if (pet.happiness >= 100) return { pet, counted: false, gained: 0 };
+  const gained = config.growthPerAction.play;
+  return {
+    pet: {
+      ...pet,
+      happiness: Math.min(100, pet.happiness + 25),
+      growth: (pet.growth || 0) + gained,
     },
     counted: true,
+    gained,
   };
 }
 
-// あそぶ（無料）。
-export function play(pet) {
-  if (pet.happiness >= 100) return { pet, counted: false };
-  return {
-    pet: { ...pet, happiness: Math.min(100, pet.happiness + 25), careCount: pet.careCount + 1 },
-    counted: true,
-  };
-}
-
-// お世話回数が閾値に達していれば進化させる。分岐は今の段階でのneglectDaysで決まる。
+// 成長ポイントが閾値に達していれば進化させる。超過ぶんは次の段階へ繰り越す。
+// 見た目の分岐は今の段階での neglectDays で決まる。
 export function checkEvolution(pet, config) {
   if (pet.stage >= 2) return { pet, evolved: false };
-  const threshold = config.careToEvolve[pet.stage];
-  if (pet.careCount < threshold) return { pet, evolved: false };
+  const threshold = config.growthToEvolve[pet.stage];
+  if ((pet.growth || 0) < threshold) return { pet, evolved: false };
   const form = pet.neglectDays <= config.formNeglectLimit ? 'happy' : 'tired';
   const next = {
     ...pet,
     stage: pet.stage + 1,
     form,
-    careCount: 0,
+    growth: (pet.growth || 0) - threshold,
     neglectDays: 0,
     hunger: Math.max(pet.hunger, 70),
     happiness: Math.max(pet.happiness, 70),
