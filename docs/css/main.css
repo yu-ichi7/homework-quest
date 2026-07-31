@@ -347,24 +347,19 @@ body {
 #shooter-canvas {
   width: 100%; max-width: 360px; height: auto;
   image-rendering: pixelated; border-radius: 6px; display: block;
+  touch-action: none; cursor: pointer;  /* 指でなぞって操作するのでスクロールさせない */
 }
 .shooter-hud {
   display: flex; justify-content: space-between; align-items: center;
   font-weight: 800; margin-bottom: 8px;
 }
+.shooter-hud #hud-power { color: var(--warn); }
 .shooter-hud #hud-lives { color: #ef4444; letter-spacing: 2px; }
 
-.control-pad {
-  display: flex; gap: 10px; margin-top: 12px;
-  touch-action: none; user-select: none; -webkit-user-select: none;
+.play-hint {
+  margin: 10px 0 0; font-size: 12px; color: var(--muted);
+  text-align: center; line-height: 1.6;
 }
-.ctrl-btn {
-  flex: 1; height: 64px; border: none; border-radius: 16px;
-  background: var(--bg); color: var(--ink); font-size: 26px; cursor: pointer;
-  touch-action: none;
-}
-.ctrl-btn.shot { flex: 1.4; background: var(--accent); color: #fff; }
-.ctrl-btn:active { transform: scale(0.95); filter: brightness(0.95); }
 
 .boost-list { display: flex; gap: 8px; }
 .boost-card {

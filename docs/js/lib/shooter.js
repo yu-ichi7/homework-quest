@@ -45,6 +45,34 @@ const SPRITES_SHOOTER = {
     'o.000.o',
     '.o.o.o.',
   ],
+  // パワーアップアイテム（色で見分ける）
+  itemPower: [
+    '.oooooo.',
+    'o0oooo0o',
+    'oo0oo0oo',
+    'ooo00ooo',
+    'oo0oo0oo',
+    'o0oooo0o',
+    '.oooooo.',
+  ],
+  itemRapid: [
+    '.llllll.',
+    'lll00lll',
+    'll00llll',
+    'l000000l',
+    'llll00ll',
+    'lll00lll',
+    '.llllll.',
+  ],
+  itemLife: [
+    '.rr..rr.',
+    'rrrrrrrr',
+    'rrwrrwrr',
+    'rrrrrrrr',
+    '.rrrrrr.',
+    '..rrrr..',
+    '...rr...',
+  ],
 };
 
 export function shooterSpriteToCells(key) {
@@ -92,6 +120,38 @@ export function difficultyAt(elapsedMs, config) {
     spawnMs: Math.max(e.spawnMinMs, e.baseSpawnMs - e.spawnSpeedUpPerMin * minutes),
     toughChance: Math.min(0.5, e.toughChancePerMin * minutes),
   };
+}
+
+// ---- アイテム ----
+
+// 重み付き抽選でアイテムの種類を1つ選ぶ。rand は 0〜1（テストしやすいよう外から渡せる）。
+export function pickItemType(config, rand = Math.random()) {
+  const types = config.items.types;
+  const total = types.reduce((s, t) => s + (t.weight || 1), 0);
+  let point = rand * total;
+  for (const t of types) {
+    point -= (t.weight || 1);
+    if (point < 0) return t;
+  }
+  return types[types.length - 1];
+}
+
+// この敵を倒したとき、アイテムを落とすか。
+export function shouldDropItem(enemy, config, rand = Math.random()) {
+  const chance = enemy.tough ? config.items.dropChanceTough : config.items.dropChanceNormal;
+  return rand < chance;
+}
+
+// アイテムを取ったときの、機体性能への反映（純粋関数）。
+export function applyItem(stats, lives, type, config) {
+  const next = { ...stats };
+  let nextLives = lives;
+  if (type.power) next.power += type.power;
+  if (type.fireDelta) {
+    next.fireIntervalMs = Math.max(config.fireIntervalMinMs, next.fireIntervalMs + type.fireDelta);
+  }
+  if (type.lives) nextLives = Math.min(config.items.maxLives, nextLives + type.lives);
+  return { stats: next, lives: nextLives };
 }
 
 // ---- 当たり判定 ----

@@ -36,6 +36,18 @@ export const DEFAULT_SHOOTER = {
     scoreTough: 30,
   },
   fireIntervalMinMs: 90,  // 連射間隔の下限
+  // 敵を倒すと、たまに落とすパワーアップアイテム（そのプレイの間ずっと効く）。
+  items: {
+    dropChanceNormal: 0.16,  // ふつうの敵が落とす確率
+    dropChanceTough: 0.5,    // かたい敵が落とす確率
+    fallSpeed: 90,           // 落ちる速さ（px/秒）
+    maxLives: 6,             // ライフの上限
+    types: [
+      { id: 'power', name: 'パワーアップ', sprite: 'itemPower', weight: 3, power: 1 },
+      { id: 'rapid', name: 'れんしゃアップ', sprite: 'itemRapid', weight: 3, fireDelta: -60 },
+      { id: 'life', name: 'ライフ回復', sprite: 'itemLife', weight: 2, lives: 1 },
+    ],
+  },
 };
 
 // ペット育成（たまごっち系）の既定パラメータ。

@@ -1,5 +1,8 @@
 import { getShooterView, startRun, finishRun, buyUpgrade } from './store.js';
-import { shooterSpriteToCells, difficultyAt, hits } from './lib/shooter.js';
+import {
+  shooterSpriteToCells, difficultyAt, hits,
+  shouldDropItem, pickItemType, applyItem,
+} from './lib/shooter.js';
 
 const CELL = 3;           // ドット1つの大きさ（px）
 const PLAYER_BOTTOM = 26; // 自機の下端からの位置
@@ -10,15 +13,15 @@ let rafId = null;
 let lastFrame = 0;
 let selectedTier = null;  // 選択中のブーストid
 
-// 押しっぱなし操作の状態。
-const input = { left: false, right: false, shoot: false };
+// 指でなぞった位置（この x に自機が寄っていく）。null なら動かさない。
+let touchX = null;
 
 function init() {
   document.getElementById('shooter-start-btn').onclick = handleStart;
   document.getElementById('modal-ok').onclick = () => { document.getElementById('modal').hidden = true; };
   wireControls();
   document.addEventListener('game-tab-changed', (e) => {
-    if (e.detail.tab === 'shooter') { if (run) startLoop(); } else { stopLoop(); releaseAll(); }
+    if (e.detail.tab === 'shooter') { if (run) startLoop(); } else { stopLoop(); touchX = null; }
   });
   render();
 }
@@ -122,9 +125,13 @@ function handleStart() {
     player: { x: canvas.width / 2, y: canvas.height - PLAYER_BOTTOM },
     bullets: [],
     enemies: [],
+    items: [],
     booms: [],
+    pickupText: '',
+    pickupUntil: 0,
     over: false,
   };
+  touchX = null;
   render();
   document.getElementById('shooter-start-btn').disabled = true;
   document.getElementById('shooter-hud').hidden = false;
@@ -148,39 +155,31 @@ function endRun() {
   );
 }
 
-// ---- 操作（押しっぱなし対応） ----
+// ---- 操作（画面を指でなぞるだけ。弾は自動で出る） ----
 
 function wireControls() {
-  bindHold('ctrl-left', 'left');
-  bindHold('ctrl-right', 'right');
-  bindHold('ctrl-shot', 'shoot');
-  // キーボードでも遊べるように（PC確認用）。
+  const canvas = document.getElementById('shooter-canvas');
+  const move = (e) => {
+    e.preventDefault();
+    const rect = canvas.getBoundingClientRect();
+    // 表示サイズ → canvas内部座標へ変換。
+    touchX = (e.clientX - rect.left) * (canvas.width / rect.width);
+  };
+  canvas.addEventListener('pointerdown', (e) => {
+    canvas.setPointerCapture?.(e.pointerId);
+    move(e);
+  });
+  canvas.addEventListener('pointermove', (e) => {
+    if (e.buttons === 0 && e.pointerType === 'mouse') return; // マウスは押している間だけ
+    move(e);
+  });
+  canvas.addEventListener('pointerup', (e) => { e.preventDefault(); });
+  // キーボードでも動かせるように（PC用）。
   window.addEventListener('keydown', (e) => {
-    if (e.key === 'ArrowLeft') input.left = true;
-    if (e.key === 'ArrowRight') input.right = true;
-    if (e.key === ' ') input.shoot = true;
+    if (!run) return;
+    if (e.key === 'ArrowLeft') touchX = run.player.x - 40;
+    if (e.key === 'ArrowRight') touchX = run.player.x + 40;
   });
-  window.addEventListener('keyup', (e) => {
-    if (e.key === 'ArrowLeft') input.left = false;
-    if (e.key === 'ArrowRight') input.right = false;
-    if (e.key === ' ') input.shoot = false;
-  });
-}
-
-function bindHold(id, key) {
-  const el = document.getElementById(id);
-  const press = (e) => { e.preventDefault(); input[key] = true; };
-  const release = (e) => { e.preventDefault(); input[key] = false; };
-  el.addEventListener('pointerdown', press);
-  el.addEventListener('pointerup', release);
-  el.addEventListener('pointerleave', release);
-  el.addEventListener('pointercancel', release);
-}
-
-function releaseAll() {
-  input.left = false;
-  input.right = false;
-  input.shoot = false;
 }
 
 // ---- ゲームループ ----
@@ -212,14 +211,18 @@ function update(dt) {
   const now = run.elapsed; // ゲーム内時間（一時停止中は進まない）
   const diff = difficultyAt(now, cfg);
 
-  // 自機の移動。
+  // 自機の移動：指でなぞった位置へ、少しずつ寄っていく（急に飛ばないので操作しやすい）。
   const half = 12;
-  if (input.left) run.player.x -= s.playerSpeed * dt;
-  if (input.right) run.player.x += s.playerSpeed * dt;
+  if (touchX !== null) {
+    const target = Math.max(half, Math.min(canvas.width - half, touchX));
+    const maxStep = s.playerSpeed * 2.2 * dt; // 指に追いつく速さの上限
+    const diff = target - run.player.x;
+    run.player.x += Math.abs(diff) <= maxStep ? diff : Math.sign(diff) * maxStep;
+  }
   run.player.x = Math.max(half, Math.min(canvas.width - half, run.player.x));
 
-  // ショット（押しっぱなしで連射）。
-  if (input.shoot && now >= run.nextFireAt) {
+  // 弾は自動で出る（ボタン不要）。
+  if (now >= run.nextFireAt) {
     run.nextFireAt = now + s.fireIntervalMs;
     run.bullets.push({ x: run.player.x - 3, y: run.player.y - 20, w: 6, h: 9 });
   }
@@ -271,6 +274,11 @@ function update(dt) {
           run.score += e.tough ? cfg.enemy.scoreTough : cfg.enemy.scoreNormal;
           run.kills += 1;
           run.booms.push({ x: e.x + e.w / 2, y: e.y + e.h / 2, until: now + 260 });
+          // たまにパワーアップアイテムを落とす。
+          if (shouldDropItem(e, cfg)) {
+            const type = pickItemType(cfg);
+            run.items.push({ x: e.x + e.w / 2 - 10, y: e.y, w: 20, h: 20, type });
+          }
         }
         break;
       }
@@ -279,8 +287,20 @@ function update(dt) {
   run.bullets = run.bullets.filter((b) => b.y > -100);
   run.enemies = run.enemies.filter((e) => e.hp > 0);
 
-  // 自機と敵の衝突。
+  // アイテムの落下と取得。
+  for (const it of run.items) it.y += cfg.items.fallSpeed * dt;
   const pbox = { x: run.player.x - half, y: run.player.y - 20, w: half * 2, h: 22 };
+  const grabbed = run.items.filter((it) => hits(pbox, it));
+  for (const it of grabbed) {
+    const applied = applyItem(run.stats, run.lives, it.type, cfg);
+    run.stats = applied.stats;
+    run.lives = applied.lives;
+    run.pickupText = it.type.name;
+    run.pickupUntil = now + 1200;
+  }
+  run.items = run.items.filter((it) => !grabbed.includes(it) && it.y < canvas.height);
+
+  // 自機と敵の衝突。
   const crashed = run.enemies.filter((e) => hits(pbox, e));
   if (crashed.length > 0) {
     run.enemies = run.enemies.filter((e) => !crashed.includes(e));
@@ -292,6 +312,7 @@ function update(dt) {
 
   // HUD更新。
   document.getElementById('hud-score').textContent = run.score;
+  document.getElementById('hud-power').textContent = `💥${run.stats.power}`;
   document.getElementById('hud-lives').textContent = '❤'.repeat(Math.max(0, run.lives));
 
   if (run.lives <= 0 && !run.over) {
@@ -337,11 +358,23 @@ function draw() {
     drawCells(ctx, shooterSpriteToCells(e.tough ? 'enemyTough' : 'enemy'), e.x + e.w / 2, e.y + e.h);
   }
 
+  for (const it of run.items) {
+    drawCells(ctx, shooterSpriteToCells(it.type.sprite), it.x + it.w / 2, it.y + it.h);
+  }
+
   for (const b of run.booms) {
     drawCells(ctx, shooterSpriteToCells('boom'), b.x, b.y + 8, 4);
   }
 
   drawCells(ctx, shooterSpriteToCells('player'), run.player.x, run.player.y);
+
+  // アイテムを取ったときの短いメッセージ。
+  if (run.pickupUntil > run.elapsed) {
+    ctx.fillStyle = '#f5e08a';
+    ctx.font = 'bold 14px system-ui, sans-serif';
+    ctx.textAlign = 'center';
+    ctx.fillText(run.pickupText, canvas.width / 2, canvas.height - 60);
+  }
 }
 
 function showModal(emoji, title, text) {
