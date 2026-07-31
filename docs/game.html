@@ -31,21 +31,21 @@
       <section class="panel">
         <div class="coin-row">
           <div class="coin-badge"><span class="emoji">🪙</span><span id="shooter-coin">-</span></div>
-          <div class="area-name">🏆 ハイスコア <span id="shooter-highscore">0</span></div>
+          <div class="area-name">🏆 最高得点 <span id="shooter-highscore">0</span></div>
         </div>
         <p class="level-sub">
-          累計撃墜 <span id="shooter-kills">0</span>機 ・ プレイ <span id="shooter-plays">0</span>回
+          累計撃墜 <span id="shooter-kills">0</span>機 ・ 出撃 <span id="shooter-plays">0</span>回
         </p>
       </section>
 
       <section class="panel">
-        <h2>ステージをえらぶ</h2>
+        <h2>ステージを選ぶ</h2>
         <div class="stage-list" id="stage-list"></div>
         <button class="btn" id="shooter-start-btn" style="width:100%; margin-top:12px">
-          スタート（🪙 <span id="play-cost">50</span>）
+          出撃（🪙 <span id="play-cost">50</span>）
         </button>
         <p class="play-hint">画面を指でなぞって移動・弾は自動。<br>
-          アイテムを取ると強くなる（💥パワー ⚡連射 ❤️ライフ）。ボスを倒すと次のステージへ！</p>
+          アイテムを取ると強くなる（💥威力 ⚡連射 ❤️体力）。ボスを倒すとステージ制覇！</p>
         <p id="shooter-msg" class="level-sub"></p>
       </section>
 
@@ -102,8 +102,8 @@
   <div class="game-overlay" id="game-overlay" hidden>
     <div class="overlay-inner">
       <div class="shooter-hud">
-        <div>スコア <span id="hud-score">0</span></div>
-        <div id="hud-stage">S1</div>
+        <div>得点 <span id="hud-score">0</span></div>
+        <div id="hud-stage">第1面</div>
         <div id="hud-power">💥1</div>
         <div id="hud-lives">❤❤❤</div>
       </div>
@@ -113,8 +113,8 @@
       </div>
       <canvas id="shooter-canvas" width="320" height="460"></canvas>
       <div class="overlay-foot">
-        <span class="overlay-hint">なぞって移動・弾は自動</span>
-        <button class="btn secondary small" id="overlay-quit">やめる</button>
+        <span class="overlay-hint">指でなぞって移動・弾は自動</span>
+        <button class="btn secondary small" id="overlay-quit">中止</button>
       </div>
     </div>
   </div>

@@ -52,10 +52,10 @@ function renderStages() {
       + (st.locked ? ' locked' : '');
     card.disabled = st.locked;
     card.innerHTML = `
-      <div class="stage-no">${st.locked ? '🔒' : `STAGE ${st.index + 1}`}</div>
+      <div class="stage-no">${st.locked ? '🔒' : `第${st.index + 1}面`}</div>
       <div class="stage-name">${st.locked ? '？？？' : st.name}</div>
       <div class="stage-boss">${st.locked ? '' : `👾 ${st.bossName}`}</div>
-      ${st.cleared ? '<div class="stage-clear">クリア済み</div>' : ''}`;
+      ${st.cleared ? '<div class="stage-clear">制覇</div>' : ''}`;
     card.onclick = () => { selectedStage = st.index; renderStages(); };
     el.appendChild(card);
   }
@@ -156,24 +156,33 @@ function startStage(index) {
   run.enemies = [];
   run.ebullets = [];
   run.boss = null;
-  run.bannerText = `STAGE ${index + 1}　${stage.name}`;
+  run.bannerText = `第${index + 1}面　${stage.name}`;
   run.bannerUntil = run.elapsed + 1800;
-  document.getElementById('hud-stage').textContent = `S${index + 1} ${stage.name}`;
+  document.getElementById('hud-stage').textContent = `第${index + 1}面 ${stage.name}`;
   document.getElementById('boss-bar').hidden = true;
 }
 
-function endRun(allCleared = false) {
-  const { score, kills, clearedIndex } = run;
+// stageCleared: ボスを倒して終わったか（false ならライフ切れ・中断）。
+function endRun(stageCleared = false) {
+  const { score, kills, clearedIndex, stageIndex } = run;
+  const isLast = stageIndex + 1 >= view.config.stages.length;
   const res = finishRun({ score, kills, clearedIndex });
   run = null;
   stopLoop();
   closeOverlay();
   render();
 
-  const title = allCleared ? 'ぜんぶクリア！' : (res.isNewRecord ? 'ハイスコア更新！' : 'ゲームオーバー');
-  const emoji = allCleared ? '👑' : (res.isNewRecord ? '🏆' : '💥');
-  const unlockMsg = res.unlockedNew ? `\n新しいステージが開いた！` : '';
-  showModal(emoji, title, `スコア ${score}（${kills}機 撃墜）\nハイスコア ${res.highScore}${unlockMsg}`);
+  let emoji = '💥';
+  let title = 'ゲームオーバー';
+  if (stageCleared) {
+    emoji = isLast ? '👑' : '🎉';
+    title = isLast ? '全ステージ制覇！' : `第${stageIndex + 1}面 クリア！`;
+  } else if (res.isNewRecord) {
+    emoji = '🏆';
+    title = '最高得点を更新！';
+  }
+  const unlockMsg = res.unlockedNew ? '\n新しいステージが開いた！' : '';
+  showModal(emoji, title, `得点 ${score}（${kills}機 撃墜）\n最高得点 ${res.highScore}${unlockMsg}`);
 }
 
 // 「やめる」で中断（そこまでの記録は残す）。
@@ -354,7 +363,7 @@ function update(dt) {
   run.bullets = run.bullets.filter((b) => b.y > -100);
   run.enemies = run.enemies.filter((e) => e.hp > 0);
 
-  // ボス撃破 → ステージクリア。
+  // ボス撃破 → ステージクリア（1プレイはここで終わり）。
   if (run.boss && run.boss.hp <= 0) {
     const b = run.boss;
     run.boss = null;
@@ -363,22 +372,19 @@ function update(dt) {
     run.kills += 1;
     run.clearedIndex = Math.max(run.clearedIndex, run.stageIndex + 1);
     run.ebullets = [];
-    run.booms.push({ x: b.x + b.w / 2, y: b.y + b.h / 2, until: now + 900 });
-    run.bannerText = `STAGE ${run.stageIndex + 1} クリア！`;
-    run.bannerUntil = now + 1800;
-    run.nextStageAt = now + 1800;
+    run.enemies = [];
+    run.booms.push({ x: b.x + b.w / 2, y: b.y + b.h / 2, until: now + 1400 });
+    run.bannerText = `第${run.stageIndex + 1}面 クリア！`;
+    run.bannerUntil = now + 2000;
+    run.endAt = now + 2000;
     document.getElementById('boss-bar').hidden = true;
   }
 
-  // クリア演出のあと、次のステージへ突入（最後ならぜんぶクリア）。
-  if (run.phase === 'clear' && now >= run.nextStageAt) {
-    if (run.stageIndex + 1 < cfg.stages.length) {
-      startStage(run.stageIndex + 1);
-    } else {
-      run.over = true;
-      endRun(true);
-      return;
-    }
+  // クリア演出のあと、このプレイを終了する。
+  if (run.phase === 'clear' && now >= run.endAt && !run.over) {
+    run.over = true;
+    endRun(true);
+    return;
   }
 
   // アイテムの落下と取得。

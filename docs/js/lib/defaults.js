@@ -17,29 +17,29 @@ export const DEFAULT_SHOOTER = {
   // duration: ボスが出るまでの時間(ms)。
   stages: [
     {
-      name: 'そよかぜ草原', enemySpeed: 70, spawnMs: 1250, toughChance: 0.05,
-      enemyFireMs: 2800, duration: 24000, clearBonus: 100,
-      boss: { name: 'みどりの守り手', hp: 40, fireMs: 1500, speed: 55, ways: 1 },
+      name: '緑の草原', enemySpeed: 70, spawnMs: 1250, toughChance: 0.05,
+      enemyFireMs: 2800, duration: 72000, clearBonus: 100,
+      boss: { name: '緑の守護者', hp: 90, fireMs: 1200, speed: 70, ways: 2 },
     },
     {
-      name: 'くもの海', enemySpeed: 85, spawnMs: 1050, toughChance: 0.15,
-      enemyFireMs: 2300, duration: 28000, clearBonus: 200,
-      boss: { name: 'くもの主', hp: 70, fireMs: 1250, speed: 70, ways: 2 },
+      name: '雲の海', enemySpeed: 85, spawnMs: 1050, toughChance: 0.15,
+      enemyFireMs: 2300, duration: 84000, clearBonus: 200,
+      boss: { name: '雲の主', hp: 150, fireMs: 1000, speed: 90, ways: 3 },
     },
     {
-      name: 'いなずま谷', enemySpeed: 100, spawnMs: 900, toughChance: 0.25,
-      enemyFireMs: 1900, duration: 32000, clearBonus: 300,
-      boss: { name: 'かみなり竜', hp: 110, fireMs: 1050, speed: 85, ways: 2 },
+      name: '稲妻の谷', enemySpeed: 100, spawnMs: 900, toughChance: 0.25,
+      enemyFireMs: 1900, duration: 96000, clearBonus: 300,
+      boss: { name: '雷竜', hp: 240, fireMs: 850, speed: 110, ways: 3 },
     },
     {
-      name: 'ほのお火山', enemySpeed: 118, spawnMs: 780, toughChance: 0.38,
-      enemyFireMs: 1600, duration: 36000, clearBonus: 400,
-      boss: { name: 'マグマ帝王', hp: 160, fireMs: 900, speed: 100, ways: 3 },
+      name: '炎の火山', enemySpeed: 118, spawnMs: 780, toughChance: 0.38,
+      enemyFireMs: 1600, duration: 108000, clearBonus: 400,
+      boss: { name: '溶岩帝王', hp: 340, fireMs: 700, speed: 130, ways: 4 },
     },
     {
-      name: 'うちゅう要塞', enemySpeed: 138, spawnMs: 660, toughChance: 0.5,
-      enemyFireMs: 1300, duration: 40000, clearBonus: 600,
-      boss: { name: '要塞コア', hp: 230, fireMs: 750, speed: 115, ways: 3 },
+      name: '宇宙要塞', enemySpeed: 138, spawnMs: 660, toughChance: 0.5,
+      enemyFireMs: 1300, duration: 120000, clearBonus: 600,
+      boss: { name: '要塞中枢', hp: 460, fireMs: 600, speed: 150, ways: 5 },
     },
   ],
   // 永続強化（買うとずっと残る）。レベルごとのコイン。
@@ -63,9 +63,9 @@ export const DEFAULT_SHOOTER = {
     fallSpeed: 90,           // 落ちる速さ（px/秒）
     maxLives: 6,             // ライフの上限
     types: [
-      { id: 'power', name: 'パワーアップ', sprite: 'itemPower', weight: 3, power: 1 },
-      { id: 'rapid', name: 'れんしゃアップ', sprite: 'itemRapid', weight: 3, fireDelta: -60 },
-      { id: 'life', name: 'ライフ回復', sprite: 'itemLife', weight: 2, lives: 1 },
+      { id: 'power', name: '威力アップ', sprite: 'itemPower', weight: 3, power: 1 },
+      { id: 'rapid', name: '連射アップ', sprite: 'itemRapid', weight: 3, fireDelta: -60 },
+      { id: 'life', name: '体力回復', sprite: 'itemLife', weight: 2, lives: 1 },
     ],
   },
 };
