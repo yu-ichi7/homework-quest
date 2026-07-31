@@ -4,6 +4,7 @@
 
 import {
   DEFAULT_CONFIG, DEFAULT_CHILDREN, DEFAULT_TASKS, DEFAULT_GAME_STATE,
+  DEFAULT_SHOOTER_STATE,
 } from './lib/defaults.js';
 import { recomputeChild } from './lib/progress.js';
 import { expandForDay, withCompletionState } from './lib/taskExpand.js';
@@ -11,10 +12,8 @@ import {
   computeStreak, taskStreak, taskTotalCount, taskCountByDate,
 } from './lib/streak.js';
 import { todayStr, addDays } from './lib/dates.js';
-import {
-  balance, locate, totalTiles, effectiveMoveCost, heroAttack, defeatCost,
-  applyMove, buyItem, equipItem,
-} from './lib/game.js';
+import { balance } from './lib/game.js';
+import { planeStats, nextUpgradeCost, maxUpgradeLevel } from './lib/shooter.js';
 import {
   createPet, applyDecay, feed, treat, play, checkEvolution, cleanPoop, SPECIES,
 } from './lib/pet.js';
@@ -36,7 +35,11 @@ function seed() {
     children: DEFAULT_CHILDREN.map((c) => ({ ...c, createdAt: now })),
     tasks: DEFAULT_TASKS.map((t) => ({ ...t, createdAt: now })),
     completions: [],
-    game: { ...DEFAULT_GAME_STATE, equipped: { ...DEFAULT_GAME_STATE.equipped } },
+    game: { ...DEFAULT_GAME_STATE },
+    shooter: {
+      ...DEFAULT_SHOOTER_STATE,
+      upgrades: { ...DEFAULT_SHOOTER_STATE.upgrades },
+    },
     pet: null,
     petAlbum: [],
     iceCream: { earned: 0, used: 0 },
@@ -48,12 +51,24 @@ function seed() {
 function ensureShape(data) {
   let changed = false;
   if (!data.config) { data.config = DEFAULT_CONFIG; changed = true; }
-  if (!data.config.game) { data.config.game = DEFAULT_CONFIG.game; changed = true; }
+  // 冒険をやめてシューティングにしたので、古い config.game は捨てて shooter を用意する。
+  if (data.config.game) { delete data.config.game; changed = true; }
+  if (!data.config.shooter) { data.config.shooter = DEFAULT_CONFIG.shooter; changed = true; }
   else {
-    // 既存の config.game に、後から増えた設定キー（baseAtk等）を補完する。
-    for (const [k, v] of Object.entries(DEFAULT_CONFIG.game)) {
-      if (data.config.game[k] === undefined) { data.config.game[k] = v; changed = true; }
+    for (const [k, v] of Object.entries(DEFAULT_CONFIG.shooter)) {
+      if (data.config.shooter[k] === undefined) { data.config.shooter[k] = v; changed = true; }
     }
+  }
+  // シューティングの記録・永続強化。
+  if (!data.shooter) {
+    data.shooter = {
+      ...DEFAULT_SHOOTER_STATE,
+      upgrades: { ...DEFAULT_SHOOTER_STATE.upgrades },
+    };
+    changed = true;
+  } else if (!data.shooter.upgrades) {
+    data.shooter.upgrades = { ...DEFAULT_SHOOTER_STATE.upgrades };
+    changed = true;
   }
   if (!data.config.pet) { data.config.pet = DEFAULT_CONFIG.pet; changed = true; }
   else {
@@ -70,22 +85,14 @@ function ensureShape(data) {
   }
 
   if (!data.game) {
-    // これまでの達成ぶんを、冒険の初期コインとして引き継ぐ。
+    // これまでの達成ぶんを、初期コインとして引き継ぐ。
     const earned = (data.completions || []).reduce((s, c) => s + (c.points || 0), 0);
-    data.game = {
-      ...DEFAULT_GAME_STATE,
-      equipped: { ...DEFAULT_GAME_STATE.equipped },
-      coinsEarned: earned,
-    };
+    data.game = { ...DEFAULT_GAME_STATE, coinsEarned: earned };
     changed = true;
   } else {
     for (const [k, v] of Object.entries(DEFAULT_GAME_STATE)) {
-      if (data.game[k] === undefined) {
-        data.game[k] = Array.isArray(v) ? [] : (v && typeof v === 'object' ? { ...v } : v);
-        changed = true;
-      }
+      if (data.game[k] === undefined) { data.game[k] = v; changed = true; }
     }
-    if (!data.game.equipped) { data.game.equipped = { ...DEFAULT_GAME_STATE.equipped }; changed = true; }
   }
 
   if (data.pet === undefined) { data.pet = null; changed = true; }
@@ -352,75 +359,74 @@ export function removeCompletion(id) {
   return { ok: true, child };
 }
 
-// ---- 冒険（RPG） ----
+// ---- シューティング ----
 
-export function getGameView() {
+export function getShooterView() {
   const data = load();
-  const g = data.game;
-  const loc = locate(g.position, data.config);
+  const cfg = data.config.shooter;
+  const s = data.shooter;
+  // 永続強化の一覧（今のレベル・次のコイン・最大レベル）。
+  const upgrades = Object.entries(cfg.upgrades).map(([kind, u]) => ({
+    kind,
+    name: u.name,
+    icon: u.icon,
+    desc: u.desc,
+    level: s.upgrades[kind] || 0,
+    maxLevel: maxUpgradeLevel(kind, cfg),
+    nextCost: nextUpgradeCost(kind, s.upgrades[kind] || 0, cfg),
+  }));
+  // ブーストごとの出撃性能（画面で見比べられるように）。
+  const boostTiers = cfg.boostTiers.map((t) => ({
+    ...t,
+    stats: planeStats(s.upgrades, t, cfg),
+  }));
   return {
-    balance: balance(g),
-    coinsEarned: g.coinsEarned || 0,
-    coinsSpent: g.coinsSpent || 0,
-    position: g.position,
-    area: loc.area,
-    areaIndex: loc.areaIndex,
-    localTile: loc.localTile,
-    isComplete: loc.isComplete,
-    moveCost: effectiveMoveCost(g, data.config),
-    totalTiles: totalTiles(data.config),
-    inventory: g.inventory || [],
-    equipped: g.equipped || {},
-    shop: data.config.game.shop,
-    heroAttack: heroAttack(g, data.config),
-    config: data.config,
-    game: g,
+    balance: balance(data.game),
+    highScore: s.highScore || 0,
+    totalKills: s.totalKills || 0,
+    plays: s.plays || 0,
+    upgrades,
+    boostTiers,
+    config: cfg,
   };
 }
 
-// あるモンスターを倒すのに今いくらかかるか（装備で安くなる）。
-export function monsterDefeatCost(monster) {
+// コインを払って出撃する。戻り値の stats がそのプレイの機体性能。
+export function startRun(tierId) {
   const data = load();
-  return defeatCost(monster, data.game, data.config);
+  const cfg = data.config.shooter;
+  const tier = cfg.boostTiers.find((t) => t.id === tierId);
+  if (!tier) return { ok: false, reason: 'no-tier' };
+  if (balance(data.game) < tier.cost) return { ok: false, reason: 'not-enough', cost: tier.cost };
+  data.game.coinsSpent = (data.game.coinsSpent || 0) + tier.cost;
+  save(data);
+  return { ok: true, cost: tier.cost, tier, stats: planeStats(data.shooter.upgrades, tier, cfg) };
 }
 
-// コインを払ってモンスターを倒す。装備のこうげき力ぶんコストが安くなる。
-export function defeatMonster(monster) {
+// ゲームオーバー時。ハイスコアと累計を更新する。
+export function finishRun({ score = 0, kills = 0 } = {}) {
   const data = load();
-  const cost = defeatCost(monster, data.game, data.config);
+  const s = data.shooter;
+  const isNewRecord = score > (s.highScore || 0);
+  if (isNewRecord) s.highScore = score;
+  s.totalKills = (s.totalKills || 0) + kills;
+  s.plays = (s.plays || 0) + 1;
+  save(data);
+  return { isNewRecord, highScore: s.highScore, totalKills: s.totalKills, plays: s.plays };
+}
+
+// 永続強化を1レベル買う。
+export function buyUpgrade(kind) {
+  const data = load();
+  const cfg = data.config.shooter;
+  const level = data.shooter.upgrades[kind] || 0;
+  const cost = nextUpgradeCost(kind, level, cfg);
+  if (cost === null) return { ok: false, reason: 'max' };
   if (balance(data.game) < cost) return { ok: false, reason: 'not-enough', cost };
   data.game.coinsSpent = (data.game.coinsSpent || 0) + cost;
-  if (!data.game.defeatedMonsters.includes(monster.id)) {
-    data.game.defeatedMonsters.push(monster.id);
-  }
-  const reward = monster.reward || {};
-  if (reward.coins) data.game.coinsEarned = (data.game.coinsEarned || 0) + reward.coins;
-  if (reward.item && !data.game.inventory.includes(reward.item)) {
-    data.game.inventory.push(reward.item);
-  }
+  data.shooter.upgrades[kind] = level + 1;
   save(data);
-  return { ok: true, cost, reward, game: data.game };
-}
-
-export function advance() {
-  const data = load();
-  const res = applyMove(data.game, data.config);
-  if (res.moved) { data.game = res.game; save(data); }
-  return res;
-}
-
-export function buy(itemId) {
-  const data = load();
-  const res = buyItem(data.game, data.config, itemId);
-  if (res.ok) { data.game = res.game; save(data); }
-  return res;
-}
-
-export function equip(itemId) {
-  const data = load();
-  data.game = equipItem(data.game, data.config, itemId);
-  save(data);
-  return data.game;
+  return { ok: true, cost, kind, level: level + 1 };
 }
 
 // ---- ペット（育成） ----
@@ -597,6 +603,7 @@ export function importData(obj) {
     tasks: obj.tasks,
     completions: obj.completions,
     game: obj.game,
+    shooter: obj.shooter,
     pet: obj.pet ?? null,
     petAlbum: Array.isArray(obj.petAlbum) ? obj.petAlbum : [],
     iceCream: obj.iceCream && typeof obj.iceCream === 'object' ? obj.iceCream : { earned: 0, used: 0 },

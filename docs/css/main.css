@@ -343,6 +343,44 @@ body {
 
 .sprite-icon { image-rendering: pixelated; flex: none; }
 
+/* シューティング */
+#shooter-canvas {
+  width: 100%; max-width: 360px; height: auto;
+  image-rendering: pixelated; border-radius: 6px; display: block;
+}
+.shooter-hud {
+  display: flex; justify-content: space-between; align-items: center;
+  font-weight: 800; margin-bottom: 8px;
+}
+.shooter-hud #hud-lives { color: #ef4444; letter-spacing: 2px; }
+
+.control-pad {
+  display: flex; gap: 10px; margin-top: 12px;
+  touch-action: none; user-select: none; -webkit-user-select: none;
+}
+.ctrl-btn {
+  flex: 1; height: 64px; border: none; border-radius: 16px;
+  background: var(--bg); color: var(--ink); font-size: 26px; cursor: pointer;
+  touch-action: none;
+}
+.ctrl-btn.shot { flex: 1.4; background: var(--accent); color: #fff; }
+.ctrl-btn:active { transform: scale(0.95); filter: brightness(0.95); }
+
+.boost-list { display: flex; gap: 8px; }
+.boost-card {
+  flex: 1; border: 3px solid var(--line); background: var(--card);
+  border-radius: 14px; padding: 10px 6px; cursor: pointer; text-align: center;
+  font-family: inherit; color: var(--ink);
+}
+.boost-card.active { border-color: var(--accent); background: var(--accent-soft); }
+.boost-card:disabled { opacity: 0.55; cursor: default; }
+.boost-card .boost-name { font-weight: 800; font-size: 14px; }
+.boost-card .boost-cost { color: var(--warn); font-weight: 800; font-size: 15px; margin: 2px 0; }
+.boost-card .boost-stats { font-size: 10px; color: var(--accent); font-weight: 700; }
+.boost-card .boost-desc { font-size: 10px; color: var(--muted); margin-top: 4px; line-height: 1.4; }
+
+.up-level { font-size: 12px; color: var(--accent); }
+
 .equip-row { display: flex; gap: 10px; }
 .equip-slot {
   flex: 1; background: var(--bg); border-radius: 14px; padding: 10px;

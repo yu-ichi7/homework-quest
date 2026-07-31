@@ -1,55 +1,41 @@
 // 初回起動時にシードするデフォルトデータ。data/*.json が無ければ投入する。
 
-// RPG（冒険）の既定パラメータ。すべてここで調整できる。
-// 盤面は「エリアを一列に並べたマップ」。position は先頭からの総マス数。
-// chests/events の tile はエリア内のローカル番号（0起点）。
-// sprite はアイテムの見た目（game.js の SPRITES 名）。effect は装備効果。
-export const DEFAULT_GAME = {
-  moveCost: 5,            // 1マス進むのに必要なコイン
-  baseAtk: 5,             // 装備なしでも相手コストを減らせる基本のこうげき力
-  monsterMinCostRatio: 0.25, // 装備で下がっても、これ以下にはならない（元コスト比）
-  areas: [
-    {
-      id: 'plains', name: 'はじまりの草原', theme: 'grass', length: 8,
-      chests: [
-        { tile: 3, reward: { coins: 15 } },
-        { tile: 6, reward: { item: 'boots-swift' } },
-      ],
-      monsters: [
-        { tile: 4, name: 'いたずらモグラ', cost: 20, reward: { coins: 12 } },
-      ],
-    },
-    {
-      id: 'forest', name: 'ひかりの森', theme: 'forest', length: 10,
-      chests: [
-        { tile: 2, reward: { coins: 20 } },
-        { tile: 5, reward: { item: 'armor-leather' } },
-        { tile: 8, reward: { coins: 30 } },
-      ],
-      monsters: [
-        { tile: 6, name: 'まよいオオカミ', cost: 34, reward: { coins: 22 } },
-      ],
-    },
-    {
-      id: 'castle', name: 'そらの城', theme: 'sky', length: 12,
-      chests: [
-        { tile: 3, reward: { coins: 30 } },
-        { tile: 7, reward: { item: 'sword-iron' } },
-        { tile: 11, reward: { coins: 50 } },
-      ],
-      monsters: [
-        { tile: 5, name: 'そらのばんにん', cost: 50, reward: { coins: 45 } },
-      ],
-    },
+// シューティングゲームの既定パラメータ。すべてここで調整できる。
+// 機体性能 = 永続強化（upgrades）＋ プレイごとのブースト（boostTiers）。
+export const DEFAULT_SHOOTER = {
+  base: {
+    lives: 3,             // 初期ライフ
+    power: 1,             // 弾の威力
+    fireIntervalMs: 380,  // 連射間隔（小さいほど速い）
+    bulletSpeed: 380,     // 弾の速さ（px/秒）
+    playerSpeed: 200,     // 自機の移動速度（px/秒）
+  },
+  // プレイ開始時に選ぶブースト。多く払うほどそのプレイだけ強くなる。
+  boostTiers: [
+    { id: 'normal', name: 'ふつう', cost: 10, power: 0, fireDelta: 0, lives: 0, desc: '基本の機体で出撃' },
+    { id: 'strong', name: 'つよい', cost: 30, power: 1, fireDelta: -80, lives: 1, desc: '弾が強く・連射も速い・ライフ+1' },
+    { id: 'max', name: 'さいきょう', cost: 60, power: 2, fireDelta: -150, lives: 2, desc: 'フルパワーで出撃！ライフ+2' },
   ],
-  shop: [
-    { id: 'sword-wood', name: '木の剣', slot: 'weapon', cost: 30, sprite: 'swordWood', atk: 4, desc: '駆け出し冒険者の相棒。攻撃+4（相手コストが減る）。' },
-    { id: 'sword-iron', name: '鉄の剣', slot: 'weapon', cost: 90, sprite: 'swordIron', atk: 10, desc: 'ずっしり頼れる一振り。攻撃+10（相手コストが減る）。' },
-    { id: 'armor-leather', name: '革の鎧', slot: 'armor', cost: 50, sprite: 'armorLeather', tint: '#8a5a2b', atk: 2, effect: { chestBonus: 2 }, desc: '宝箱のコインが少し増える。攻撃+2。' },
-    { id: 'armor-plate', name: '鋼の鎧', slot: 'armor', cost: 140, sprite: 'armorPlate', tint: '#9aa4b2', atk: 4, effect: { chestBonus: 4 }, desc: '宝箱のコインがぐっと増える。攻撃+4。' },
-    { id: 'boots-swift', name: '俊足の靴', slot: 'boots', cost: 40, sprite: 'bootsSwift', tint: '#8a5a2b', effect: { moveCostDelta: -1 }, desc: '移動コストが 1 減る。' },
-    { id: 'boots-wind', name: '風のブーツ', slot: 'boots', cost: 120, sprite: 'bootsWind', tint: '#7ec8e3', effect: { moveCostDelta: -2 }, desc: '移動コストが 2 減る。' },
-  ],
+  // 永続強化（買うとずっと残る）。レベルごとのコイン。
+  upgrades: {
+    power: { name: 'ショット強化', icon: '💥', desc: '弾の威力が上がる', costs: [40, 90, 180], perLevel: 1 },
+    rapid: { name: '連射速度', icon: '⚡', desc: '弾を速く撃てる', costs: [50, 110, 220], perLevel: -50 },
+    life: { name: 'ライフ増加', icon: '❤️', desc: 'ライフが1つ増える', costs: [60, 140, 260], perLevel: 1 },
+  },
+  // 敵の出方。時間が経つほど速く・多くなる。
+  enemy: {
+    baseSpeed: 70,        // 落下速度（px/秒）
+    speedPerMin: 45,      // 1分ごとに増える落下速度
+    baseSpawnMs: 1100,    // 出現間隔
+    spawnMinMs: 320,      // 出現間隔の下限
+    spawnSpeedUpPerMin: 260, // 1分ごとに縮む出現間隔
+    toughChancePerMin: 0.18, // 硬い敵が出る確率の増え方（上限0.5）
+    toughHp: 3,
+    normalHp: 1,
+    scoreNormal: 10,
+    scoreTough: 30,
+  },
+  fireIntervalMinMs: 90,  // 連射間隔の下限
 };
 
 // ペット育成（たまごっち系）の既定パラメータ。
@@ -74,15 +60,18 @@ export const DEFAULT_PET = {
 export const DEFAULT_GAME_STATE = {
   coinsEarned: 0,
   coinsSpent: 0,
-  position: 0,
-  openedChests: [],       // 開けた宝箱の tileId（"areaId:tile"）
-  defeatedMonsters: [],   // 倒したモンスターの tileId（"areaId:tile"）
-  inventory: [],          // 所持アイテム id
-  equipped: { weapon: null, armor: null, boots: null },
+};
+
+// シューティングの記録と永続強化。
+export const DEFAULT_SHOOTER_STATE = {
+  upgrades: { power: 0, rapid: 0, life: 0 },
+  highScore: 0,
+  totalKills: 0,
+  plays: 0,
 };
 
 export const DEFAULT_CONFIG = {
-  game: DEFAULT_GAME,
+  shooter: DEFAULT_SHOOTER,
   pet: DEFAULT_PET,
   iceCreamStreak: 10, // このタスクが何連続に達するごとにアイスクリームバッジ1個
   levels: [
