@@ -13,7 +13,9 @@ import {
 } from './lib/streak.js';
 import { todayStr, addDays } from './lib/dates.js';
 import { balance } from './lib/game.js';
-import { planeStats, nextUpgradeCost, maxUpgradeLevel } from './lib/shooter.js';
+import {
+  planeStats, nextUpgradeCost, maxUpgradeLevel, isStageUnlocked,
+} from './lib/shooter.js';
 import {
   createPet, applyDecay, feed, treat, play, checkEvolution, cleanPoop, SPECIES,
 } from './lib/pet.js';
@@ -66,9 +68,12 @@ function ensureShape(data) {
       upgrades: { ...DEFAULT_SHOOTER_STATE.upgrades },
     };
     changed = true;
-  } else if (!data.shooter.upgrades) {
-    data.shooter.upgrades = { ...DEFAULT_SHOOTER_STATE.upgrades };
-    changed = true;
+  } else {
+    if (!data.shooter.upgrades) {
+      data.shooter.upgrades = { ...DEFAULT_SHOOTER_STATE.upgrades };
+      changed = true;
+    }
+    if (data.shooter.cleared === undefined) { data.shooter.cleared = 0; changed = true; }
   }
   if (!data.config.pet) { data.config.pet = DEFAULT_CONFIG.pet; changed = true; }
   else {
@@ -375,44 +380,56 @@ export function getShooterView() {
     maxLevel: maxUpgradeLevel(kind, cfg),
     nextCost: nextUpgradeCost(kind, s.upgrades[kind] || 0, cfg),
   }));
-  // ブーストごとの出撃性能（画面で見比べられるように）。
-  const boostTiers = cfg.boostTiers.map((t) => ({
-    ...t,
-    stats: planeStats(s.upgrades, t, cfg),
+  // ステージ一覧（クリア済みの次まで解放）。
+  const stages = cfg.stages.map((st, i) => ({
+    index: i,
+    name: st.name,
+    bossName: st.boss.name,
+    locked: !isStageUnlocked(i, s.cleared || 0),
+    cleared: i < (s.cleared || 0),
   }));
   return {
     balance: balance(data.game),
+    playCost: cfg.playCost,
     highScore: s.highScore || 0,
     totalKills: s.totalKills || 0,
     plays: s.plays || 0,
+    cleared: s.cleared || 0,
     upgrades,
-    boostTiers,
+    stages,
+    stats: planeStats(s.upgrades, cfg),
     config: cfg,
   };
 }
 
 // コインを払って出撃する。戻り値の stats がそのプレイの機体性能。
-export function startRun(tierId) {
+export function startRun(stageIndex = 0) {
   const data = load();
   const cfg = data.config.shooter;
-  const tier = cfg.boostTiers.find((t) => t.id === tierId);
-  if (!tier) return { ok: false, reason: 'no-tier' };
-  if (balance(data.game) < tier.cost) return { ok: false, reason: 'not-enough', cost: tier.cost };
-  data.game.coinsSpent = (data.game.coinsSpent || 0) + tier.cost;
+  if (!cfg.stages[stageIndex]) return { ok: false, reason: 'no-stage' };
+  if (!isStageUnlocked(stageIndex, data.shooter.cleared || 0)) return { ok: false, reason: 'locked' };
+  const cost = cfg.playCost;
+  if (balance(data.game) < cost) return { ok: false, reason: 'not-enough', cost };
+  data.game.coinsSpent = (data.game.coinsSpent || 0) + cost;
   save(data);
-  return { ok: true, cost: tier.cost, tier, stats: planeStats(data.shooter.upgrades, tier, cfg) };
+  return { ok: true, cost, stageIndex, stats: planeStats(data.shooter.upgrades, cfg) };
 }
 
-// ゲームオーバー時。ハイスコアと累計を更新する。
-export function finishRun({ score = 0, kills = 0 } = {}) {
+// ゲーム終了時。ハイスコア・累計と、どこまでクリアしたか（ステージ解放）を保存する。
+export function finishRun({ score = 0, kills = 0, clearedIndex = 0 } = {}) {
   const data = load();
   const s = data.shooter;
   const isNewRecord = score > (s.highScore || 0);
   if (isNewRecord) s.highScore = score;
   s.totalKills = (s.totalKills || 0) + kills;
   s.plays = (s.plays || 0) + 1;
+  const unlockedNew = clearedIndex > (s.cleared || 0);
+  if (unlockedNew) s.cleared = clearedIndex;
   save(data);
-  return { isNewRecord, highScore: s.highScore, totalKills: s.totalKills, plays: s.plays };
+  return {
+    isNewRecord, unlockedNew,
+    highScore: s.highScore, totalKills: s.totalKills, plays: s.plays, cleared: s.cleared,
+  };
 }
 
 // 永続強化を1レベル買う。

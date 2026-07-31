@@ -39,23 +39,14 @@
       </section>
 
       <section class="panel">
-        <div class="shooter-hud" id="shooter-hud" hidden>
-          <div>スコア <span id="hud-score">0</span></div>
-          <div id="hud-power">💥1</div>
-          <div id="hud-lives">❤❤❤</div>
-        </div>
-        <div class="retro-frame">
-          <canvas id="shooter-canvas" width="320" height="400"></canvas>
-        </div>
-        <p class="play-hint">画面を指でなぞると飛行機が動きます。弾は自動で出ます。<br>
-          落ちてくるアイテムを取ると強くなる！（💥パワー ⚡連射 ❤️ライフ）</p>
+        <h2>ステージをえらぶ</h2>
+        <div class="stage-list" id="stage-list"></div>
+        <button class="btn" id="shooter-start-btn" style="width:100%; margin-top:12px">
+          スタート（🪙 <span id="play-cost">50</span>）
+        </button>
+        <p class="play-hint">画面を指でなぞって移動・弾は自動。<br>
+          アイテムを取ると強くなる（💥パワー ⚡連射 ❤️ライフ）。ボスを倒すと次のステージへ！</p>
         <p id="shooter-msg" class="level-sub"></p>
-      </section>
-
-      <section class="panel">
-        <h2>出撃ブースト（払うほど強い）</h2>
-        <div class="boost-list" id="boost-list"></div>
-        <button class="btn" id="shooter-start-btn" style="width:100%; margin-top:12px">スタート</button>
       </section>
 
       <section class="panel">
@@ -107,6 +98,26 @@
       </section>
     </div>
   </main>
+
+  <div class="game-overlay" id="game-overlay" hidden>
+    <div class="overlay-inner">
+      <div class="shooter-hud">
+        <div>スコア <span id="hud-score">0</span></div>
+        <div id="hud-stage">S1</div>
+        <div id="hud-power">💥1</div>
+        <div id="hud-lives">❤❤❤</div>
+      </div>
+      <div class="boss-bar" id="boss-bar" hidden>
+        <div class="boss-bar-label">👾 <span id="boss-name">-</span></div>
+        <div class="xpbar"><span id="boss-hp-fill" class="danger" style="width:100%"></span></div>
+      </div>
+      <canvas id="shooter-canvas" width="320" height="460"></canvas>
+      <div class="overlay-foot">
+        <span class="overlay-hint">なぞって移動・弾は自動</span>
+        <button class="btn secondary small" id="overlay-quit">やめる</button>
+      </div>
+    </div>
+  </div>
 
   <div class="modal-back" id="modal" hidden>
     <div class="modal">

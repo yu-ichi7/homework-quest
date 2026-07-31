@@ -38,6 +38,25 @@ const SPRITES_SHOOTER = {
     '000',
     '.0.',
   ],
+  // 敵の弾（下向き）
+  enemyBullet: [
+    '.v.',
+    'vvv',
+    'vrv',
+    '.v.',
+  ],
+  // ボス（大きめ）
+  boss: [
+    '..kk....kk..',
+    '.krrk..krrk.',
+    'krrrrkkrrrrk',
+    'rr0rrrrrr0rr',
+    'rrrrkkkkrrrr',
+    'rrkrrrrrrkrr',
+    '.rrrrrrrrrr.',
+    '..rr.rr.rr..',
+    '...k.....k..',
+  ],
   boom: [
     '.o.o.o.',
     'o.000.o',
@@ -79,17 +98,14 @@ export function shooterSpriteToCells(key) {
   return rowsToCells(SPRITES_SHOOTER[key]);
 }
 
-// ---- 機体性能（永続強化 ＋ そのプレイのブースト） ----
+// ---- 機体性能（永続強化から算出。あとは拾ったアイテムで伸びる） ----
 
-export function planeStats(upgrades, tier, config) {
+export function planeStats(upgrades, config) {
   const up = upgrades || {};
-  const t = tier || { power: 0, fireDelta: 0, lives: 0 };
   const u = config.upgrades;
-  const power = config.base.power + (up.power || 0) * u.power.perLevel + (t.power || 0);
-  const fire = config.base.fireIntervalMs
-    + (up.rapid || 0) * u.rapid.perLevel
-    + (t.fireDelta || 0);
-  const lives = config.base.lives + (up.life || 0) * u.life.perLevel + (t.lives || 0);
+  const power = config.base.power + (up.power || 0) * u.power.perLevel;
+  const fire = config.base.fireIntervalMs + (up.rapid || 0) * u.rapid.perLevel;
+  const lives = config.base.lives + (up.life || 0) * u.life.perLevel;
   return {
     power: Math.max(1, power),
     fireIntervalMs: Math.max(config.fireIntervalMinMs, fire),
@@ -97,6 +113,17 @@ export function planeStats(upgrades, tier, config) {
     bulletSpeed: config.base.bulletSpeed,
     playerSpeed: config.base.playerSpeed,
   };
+}
+
+// ---- ステージ ----
+
+export function stageAt(index, config) {
+  return config.stages[Math.max(0, Math.min(index, config.stages.length - 1))];
+}
+
+// index（0始まり）のステージが遊べるか。cleared はクリア済みの最大ステージ番号（1始まり）。
+export function isStageUnlocked(index, cleared) {
+  return index <= (cleared || 0);
 }
 
 // 次のレベルのコイン（最大まで買っていれば null）。
@@ -107,19 +134,6 @@ export function nextUpgradeCost(kind, level, config) {
 
 export function maxUpgradeLevel(kind, config) {
   return (config.upgrades[kind]?.costs || []).length;
-}
-
-// ---- 難易度カーブ ----
-
-// 経過時間（ms）から、敵の落下速度・出現間隔・かたい敵の割合を返す。
-export function difficultyAt(elapsedMs, config) {
-  const minutes = elapsedMs / 60000;
-  const e = config.enemy;
-  return {
-    speed: e.baseSpeed + e.speedPerMin * minutes,
-    spawnMs: Math.max(e.spawnMinMs, e.baseSpawnMs - e.spawnSpeedUpPerMin * minutes),
-    toughChance: Math.min(0.5, e.toughChancePerMin * minutes),
-  };
 }
 
 // ---- アイテム ----

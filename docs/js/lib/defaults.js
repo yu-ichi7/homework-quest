@@ -1,8 +1,9 @@
 // 初回起動時にシードするデフォルトデータ。data/*.json が無ければ投入する。
 
 // シューティングゲームの既定パラメータ。すべてここで調整できる。
-// 機体性能 = 永続強化（upgrades）＋ プレイごとのブースト（boostTiers）。
+// 機体性能 = 永続強化（upgrades）＋ 拾ったアイテム。出撃は一律 playCost コイン。
 export const DEFAULT_SHOOTER = {
+  playCost: 50,           // 1プレイのコイン
   base: {
     lives: 3,             // 初期ライフ
     power: 1,             // 弾の威力
@@ -10,11 +11,36 @@ export const DEFAULT_SHOOTER = {
     bulletSpeed: 380,     // 弾の速さ（px/秒）
     playerSpeed: 200,     // 自機の移動速度（px/秒）
   },
-  // プレイ開始時に選ぶブースト。多く払うほどそのプレイだけ強くなる。
-  boostTiers: [
-    { id: 'normal', name: 'ふつう', cost: 10, power: 0, fireDelta: 0, lives: 0, desc: '基本の機体で出撃' },
-    { id: 'strong', name: 'つよい', cost: 30, power: 1, fireDelta: -80, lives: 1, desc: '弾が強く・連射も速い・ライフ+1' },
-    { id: 'max', name: 'さいきょう', cost: 60, power: 2, fireDelta: -150, lives: 2, desc: 'フルパワーで出撃！ライフ+2' },
+  invincibleMs: 1200,     // 被弾後の無敵時間
+  enemyBulletSpeed: 150,  // 敵の弾の速さ（px/秒）
+  // 5つのステージ。だんだん敵が速く・多く・よく撃つようになる。
+  // duration: ボスが出るまでの時間(ms)。
+  stages: [
+    {
+      name: 'そよかぜ草原', enemySpeed: 70, spawnMs: 1250, toughChance: 0.05,
+      enemyFireMs: 2800, duration: 24000, clearBonus: 100,
+      boss: { name: 'みどりの守り手', hp: 40, fireMs: 1500, speed: 55, ways: 1 },
+    },
+    {
+      name: 'くもの海', enemySpeed: 85, spawnMs: 1050, toughChance: 0.15,
+      enemyFireMs: 2300, duration: 28000, clearBonus: 200,
+      boss: { name: 'くもの主', hp: 70, fireMs: 1250, speed: 70, ways: 2 },
+    },
+    {
+      name: 'いなずま谷', enemySpeed: 100, spawnMs: 900, toughChance: 0.25,
+      enemyFireMs: 1900, duration: 32000, clearBonus: 300,
+      boss: { name: 'かみなり竜', hp: 110, fireMs: 1050, speed: 85, ways: 2 },
+    },
+    {
+      name: 'ほのお火山', enemySpeed: 118, spawnMs: 780, toughChance: 0.38,
+      enemyFireMs: 1600, duration: 36000, clearBonus: 400,
+      boss: { name: 'マグマ帝王', hp: 160, fireMs: 900, speed: 100, ways: 3 },
+    },
+    {
+      name: 'うちゅう要塞', enemySpeed: 138, spawnMs: 660, toughChance: 0.5,
+      enemyFireMs: 1300, duration: 40000, clearBonus: 600,
+      boss: { name: '要塞コア', hp: 230, fireMs: 750, speed: 115, ways: 3 },
+    },
   ],
   // 永続強化（買うとずっと残る）。レベルごとのコイン。
   upgrades: {
@@ -22,18 +48,12 @@ export const DEFAULT_SHOOTER = {
     rapid: { name: '連射速度', icon: '⚡', desc: '弾を速く撃てる', costs: [50, 110, 220], perLevel: -50 },
     life: { name: 'ライフ増加', icon: '❤️', desc: 'ライフが1つ増える', costs: [60, 140, 260], perLevel: 1 },
   },
-  // 敵の出方。時間が経つほど速く・多くなる。
   enemy: {
-    baseSpeed: 70,        // 落下速度（px/秒）
-    speedPerMin: 45,      // 1分ごとに増える落下速度
-    baseSpawnMs: 1100,    // 出現間隔
-    spawnMinMs: 320,      // 出現間隔の下限
-    spawnSpeedUpPerMin: 260, // 1分ごとに縮む出現間隔
-    toughChancePerMin: 0.18, // 硬い敵が出る確率の増え方（上限0.5）
     toughHp: 3,
     normalHp: 1,
     scoreNormal: 10,
     scoreTough: 30,
+    scoreBoss: 500,
   },
   fireIntervalMinMs: 90,  // 連射間隔の下限
   // 敵を倒すと、たまに落とすパワーアップアイテム（そのプレイの間ずっと効く）。
@@ -80,6 +100,7 @@ export const DEFAULT_SHOOTER_STATE = {
   highScore: 0,
   totalKills: 0,
   plays: 0,
+  cleared: 0,   // クリア済みの最大ステージ番号（1始まり。0なら未クリア）
 };
 
 export const DEFAULT_CONFIG = {
