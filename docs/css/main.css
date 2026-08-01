@@ -397,6 +397,7 @@ body {
 .stage-card .stage-no { font-size: 11px; font-weight: 800; color: var(--accent); }
 .stage-card .stage-name { font-size: 16px; font-weight: 800; }
 .stage-card .stage-boss { font-size: 11px; color: var(--muted); }
+.stage-card .stage-score { font-size: 11px; font-weight: 700; color: var(--accent); }
 .stage-card .stage-clear {
   position: absolute; top: 10px; right: 12px;
   font-size: 10px; font-weight: 800; color: #166534;

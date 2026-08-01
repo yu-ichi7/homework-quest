@@ -2,10 +2,12 @@ import { getShooterView, startRun, finishRun, buyUpgrade } from './store.js';
 import {
   shooterSpriteToCells, stageAt, hits,
   shouldDropItem, pickItemType, applyItem,
+  stageProgress, computeScore,
 } from './lib/shooter.js';
 
 const CELL = 3;           // ドット1つの大きさ（px）
-const PLAYER_BOTTOM = 30; // 自機の下端からの位置
+const PLAYER_BOTTOM = 30; // 自機の下端からの位置（開始位置）
+const PLAYER_TOP = 120;   // 自機がここより前（上）には行けない
 
 let view = null;          // 画面表示用のデータ
 let run = null;           // プレイ中の状態（null ならプレイしていない）
@@ -13,8 +15,9 @@ let rafId = null;
 let lastFrame = 0;
 let selectedStage = 0;    // 選択中のステージ（0始まり）
 
-// 指でなぞった位置（この x に自機が寄っていく）。null なら動かさない。
+// 指でなぞった位置（この座標に自機が寄っていく）。null なら動かさない。
 let touchX = null;
+let touchY = null;
 
 function init() {
   document.getElementById('shooter-start-btn').onclick = handleStart;
@@ -22,7 +25,7 @@ function init() {
   document.getElementById('modal-ok').onclick = () => { document.getElementById('modal').hidden = true; };
   wireControls();
   document.addEventListener('game-tab-changed', (e) => {
-    if (e.detail.tab === 'shooter') { if (run) startLoop(); } else { stopLoop(); touchX = null; }
+    if (e.detail.tab === 'shooter') { if (run) startLoop(); } else { stopLoop(); touchX = null; touchY = null; }
   });
   render();
 }
@@ -55,6 +58,7 @@ function renderStages() {
       <div class="stage-no">${st.locked ? '🔒' : `第${st.index + 1}面`}</div>
       <div class="stage-name">${st.locked ? '？？？' : st.name}</div>
       <div class="stage-boss">${st.locked ? '' : `👾 ${st.bossName}`}</div>
+      <div class="stage-score">${st.locked ? '' : `満点 ${st.fullScore}`}</div>
       ${st.cleared ? '<div class="stage-clear">制覇</div>' : ''}`;
     card.onclick = () => { selectedStage = st.index; renderStages(); };
     el.appendChild(card);
@@ -121,6 +125,7 @@ function handleStart() {
     lives: res.stats.lives,
     score: 0,
     kills: 0,
+    damageCount: 0,           // 被弾した回数（0ならノーミス）
     clearedIndex: 0,          // このプレイでクリアしたステージ数
     elapsed: 0,               // ループが動いている間だけ進む時間（ms）
     player: { x: canvas.width / 2, y: canvas.height - PLAYER_BOTTOM },
@@ -136,6 +141,7 @@ function handleStart() {
     over: false,
   };
   touchX = null;
+  touchY = null;
   startStage(res.stageIndex);
   openOverlay();
   render();
@@ -164,8 +170,9 @@ function startStage(index) {
 
 // stageCleared: ボスを倒して終わったか（false ならライフ切れ・中断）。
 function endRun(stageCleared = false) {
-  const { score, kills, clearedIndex, stageIndex } = run;
+  const { score, kills, clearedIndex, stageIndex, damageCount } = run;
   const isLast = stageIndex + 1 >= view.config.stages.length;
+  const noMiss = stageCleared && damageCount === 0;
   const res = finishRun({ score, kills, clearedIndex });
   run = null;
   stopLoop();
@@ -174,15 +181,19 @@ function endRun(stageCleared = false) {
 
   let emoji = '💥';
   let title = 'ゲームオーバー';
-  if (stageCleared) {
+  if (noMiss) {
+    emoji = '🌟';
+    title = isLast ? '無傷で全ステージ制覇！' : `第${stageIndex + 1}面 ノーミス満点！`;
+  } else if (stageCleared) {
     emoji = isLast ? '👑' : '🎉';
     title = isLast ? '全ステージ制覇！' : `第${stageIndex + 1}面 クリア！`;
   } else if (res.isNewRecord) {
     emoji = '🏆';
     title = '最高得点を更新！';
   }
+  const missMsg = damageCount === 0 ? 'ノーミス' : `被弾 ${damageCount}回`;
   const unlockMsg = res.unlockedNew ? '\n新しいステージが開いた！' : '';
-  showModal(emoji, title, `得点 ${score}（${kills}機 撃墜）\n最高得点 ${res.highScore}${unlockMsg}`);
+  showModal(emoji, title, `得点 ${score}（${kills}機 撃墜・${missMsg}）\n最高得点 ${res.highScore}${unlockMsg}`);
 }
 
 // 「やめる」で中断（そこまでの記録は残す）。
@@ -191,7 +202,7 @@ function quitRun() {
   endRun(false);
 }
 
-// ---- 操作（画面を指でなぞるだけ。弾は自動で出る） ----
+// ---- 操作（画面を指でなぞるだけ。前後にも動ける。弾は自動で出る） ----
 
 function wireControls() {
   const canvas = document.getElementById('shooter-canvas');
@@ -199,6 +210,7 @@ function wireControls() {
     e.preventDefault();
     const rect = canvas.getBoundingClientRect();
     touchX = (e.clientX - rect.left) * (canvas.width / rect.width);
+    touchY = (e.clientY - rect.top) * (canvas.height / rect.height);
   };
   canvas.addEventListener('pointerdown', (e) => {
     canvas.setPointerCapture?.(e.pointerId);
@@ -213,6 +225,8 @@ function wireControls() {
     if (!run) return;
     if (e.key === 'ArrowLeft') touchX = run.player.x - 40;
     if (e.key === 'ArrowRight') touchX = run.player.x + 40;
+    if (e.key === 'ArrowUp') touchY = run.player.y - 40;
+    if (e.key === 'ArrowDown') touchY = run.player.y + 40;
   });
 }
 
@@ -233,7 +247,7 @@ function loop(now) {
   if (run) {
     run.elapsed += dt * 1000;
     update(dt);
-    draw();
+    if (run) draw(); // update() 内でランが終了(run=null)している場合は描画しない
   }
   rafId = requestAnimationFrame(loop);
 }
@@ -245,15 +259,24 @@ function update(dt) {
   const s = run.stats;
   const now = run.elapsed;
 
-  // 自機の移動：指の位置へ少しずつ寄る。
+  // 自機の移動：指の位置へ少しずつ寄る（左右だけでなく前後にも動ける）。
   const half = 12;
+  const minY = PLAYER_TOP;
+  const maxY = canvas.height - 8;
+  const maxStep = s.playerSpeed * 2.2 * dt;
+  const approach = (cur, target, limitLo, limitHi) => {
+    const t = Math.max(limitLo, Math.min(limitHi, target));
+    const diff = t - cur;
+    return cur + (Math.abs(diff) <= maxStep ? diff : Math.sign(diff) * maxStep);
+  };
   if (touchX !== null) {
-    const target = Math.max(half, Math.min(canvas.width - half, touchX));
-    const maxStep = s.playerSpeed * 2.2 * dt;
-    const diff = target - run.player.x;
-    run.player.x += Math.abs(diff) <= maxStep ? diff : Math.sign(diff) * maxStep;
+    run.player.x = approach(run.player.x, touchX, half, canvas.width - half);
+  }
+  if (touchY !== null) {
+    run.player.y = approach(run.player.y, touchY, minY, maxY);
   }
   run.player.x = Math.max(half, Math.min(canvas.width - half, run.player.x));
+  run.player.y = Math.max(minY, Math.min(maxY, run.player.y));
 
   // 自機の弾（自動連射）。
   if (now >= run.nextFireAt) {
@@ -342,7 +365,6 @@ function update(dt) {
         e.hp -= s.power;
         hit = true;
         if (e.hp <= 0) {
-          run.score += e.tough ? cfg.enemy.scoreTough : cfg.enemy.scoreNormal;
           run.kills += 1;
           run.booms.push({ x: e.x + e.w / 2, y: e.y + e.h / 2, until: now + 260 });
           if (shouldDropItem(e, cfg)) {
@@ -368,7 +390,6 @@ function update(dt) {
     const b = run.boss;
     run.boss = null;
     run.phase = 'clear';
-    run.score += cfg.enemy.scoreBoss + stage.clearBonus;
     run.kills += 1;
     run.clearedIndex = Math.max(run.clearedIndex, run.stageIndex + 1);
     run.ebullets = [];
@@ -414,6 +435,9 @@ function update(dt) {
 
   run.booms = run.booms.filter((b) => b.until > now);
 
+  // 得点を計算し直す（進むほど増え、被弾すると減る）。
+  run.score = computeScore(stage, currentProgress(cfg), run.damageCount, cfg);
+
   // HUD更新。
   document.getElementById('hud-score').textContent = run.score;
   document.getElementById('hud-power').textContent = `💥${run.stats.power}`;
@@ -425,9 +449,20 @@ function update(dt) {
   }
 }
 
-// ライフを減らし、しばらく無敵にする。
+// いまのステージの進み具合（0〜1）。
+function currentProgress(cfg) {
+  if (run.phase === 'boss') {
+    const ratio = run.boss ? run.boss.hp / run.boss.maxHp : 0;
+    return stageProgress({ phase: 'boss', bossHpRatio: ratio }, cfg);
+  }
+  const waveRatio = (run.elapsed - run.stageStartedAt) / run.stage.duration;
+  return stageProgress({ phase: run.phase, waveRatio }, cfg);
+}
+
+// ライフを減らし、しばらく無敵にする。被弾は1回ぶんとして得点から減点される。
 function damagePlayer(amount, cfg) {
   run.lives -= amount;
+  run.damageCount += amount;
   run.invincibleUntil = run.elapsed + cfg.invincibleMs;
 }
 

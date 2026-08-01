@@ -42,10 +42,11 @@
         <h2>ステージを選ぶ</h2>
         <div class="stage-list" id="stage-list"></div>
         <button class="btn" id="shooter-start-btn" style="width:100%; margin-top:12px">
-          出撃（🪙 <span id="play-cost">50</span>）
+          出撃（🪙 <span id="play-cost">30</span>）
         </button>
-        <p class="play-hint">画面を指でなぞって移動・弾は自動。<br>
-          アイテムを取ると強くなる（💥威力 ⚡連射 ❤️体力）。ボスを倒すとステージ制覇！</p>
+        <p class="play-hint">画面を指でなぞって移動（前後にも動ける）・弾は自動。<br>
+          アイテムを取ると強くなる（💥威力 ⚡連射 ❤️体力）。<br>
+          得点は進むほど増え、被弾すると減る。<b>ノーミスでボスを倒すと満点！</b></p>
         <p id="shooter-msg" class="level-sub"></p>
       </section>
 
@@ -113,7 +114,7 @@
       </div>
       <canvas id="shooter-canvas" width="320" height="460"></canvas>
       <div class="overlay-foot">
-        <span class="overlay-hint">指でなぞって移動・弾は自動</span>
+        <span class="overlay-hint">指でなぞって移動（前後も可）・弾は自動</span>
         <button class="btn secondary small" id="overlay-quit">中止</button>
       </div>
     </div>

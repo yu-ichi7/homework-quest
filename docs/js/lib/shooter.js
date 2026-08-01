@@ -126,6 +126,24 @@ export function isStageUnlocked(index, cleared) {
   return index <= (cleared || 0);
 }
 
+// ---- 得点 ----
+
+// 進み具合（0〜1）。ボス出現までで wavePhaseRatio まで、ボスの体力を削りきると 1。
+export function stageProgress({ phase, waveRatio = 0, bossHpRatio = 1 }, config) {
+  const w = config.scoring.wavePhaseRatio;
+  if (phase === 'clear') return 1;
+  if (phase === 'boss') return w + (1 - w) * Math.min(1, Math.max(0, 1 - bossHpRatio));
+  return w * Math.min(1, Math.max(0, waveRatio));
+}
+
+// 得点 ＝ ステージの満点 × 進み具合 −（被弾ごとの減点）。
+// ノーミスでボスを倒すと、ちょうど満点になる。
+export function computeScore(stage, progress, damageCount, config) {
+  const full = stage.clearScore;
+  const penalty = full * config.scoring.damagePenaltyRatio * (damageCount || 0);
+  return Math.max(0, Math.round(full * progress - penalty));
+}
+
 // 次のレベルのコイン（最大まで買っていれば null）。
 export function nextUpgradeCost(kind, level, config) {
   const costs = config.upgrades[kind]?.costs || [];

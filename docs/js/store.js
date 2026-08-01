@@ -60,6 +60,17 @@ function ensureShape(data) {
     for (const [k, v] of Object.entries(DEFAULT_CONFIG.shooter)) {
       if (data.config.shooter[k] === undefined) { data.config.shooter[k] = v; changed = true; }
     }
+    // 得点を「ノーミスでクリア＝満点」方式に作り直したので、
+    // 旧ステージ定義（clearBonus 制）は新しい定義に差し替える。
+    if (!data.config.shooter.stages?.[0]?.clearScore) {
+      data.config.shooter.stages = DEFAULT_CONFIG.shooter.stages;
+      changed = true;
+    }
+    // 1プレイの旧価格（50コイン）は新価格へ。
+    if (data.config.shooter.playCost === 50) {
+      data.config.shooter.playCost = DEFAULT_CONFIG.shooter.playCost;
+      changed = true;
+    }
   }
   // シューティングの記録・永続強化。
   if (!data.shooter) {
@@ -385,6 +396,7 @@ export function getShooterView() {
     index: i,
     name: st.name,
     bossName: st.boss.name,
+    fullScore: st.clearScore,
     locked: !isStageUnlocked(i, s.cleared || 0),
     cleared: i < (s.cleared || 0),
   }));

@@ -3,7 +3,7 @@
 // シューティングゲームの既定パラメータ。すべてここで調整できる。
 // 機体性能 = 永続強化（upgrades）＋ 拾ったアイテム。出撃は一律 playCost コイン。
 export const DEFAULT_SHOOTER = {
-  playCost: 50,           // 1プレイのコイン
+  playCost: 30,           // 1プレイのコイン
   base: {
     lives: 3,             // 初期ライフ
     power: 1,             // 弾の威力
@@ -15,33 +15,40 @@ export const DEFAULT_SHOOTER = {
   enemyBulletSpeed: 150,  // 敵の弾の速さ（px/秒）
   // 5つのステージ。だんだん敵が速く・多く・よく撃つようになる。
   // duration: ボスが出るまでの時間(ms)。
+  // clearScore: そのステージをノーミスでクリアしたときの満点。
   stages: [
     {
       name: '緑の草原', enemySpeed: 70, spawnMs: 1250, toughChance: 0.05,
-      enemyFireMs: 2800, duration: 72000, clearBonus: 100,
+      enemyFireMs: 2800, duration: 72000, clearScore: 10000,
       boss: { name: '緑の守護者', hp: 90, fireMs: 1200, speed: 70, ways: 2 },
     },
     {
       name: '雲の海', enemySpeed: 85, spawnMs: 1050, toughChance: 0.15,
-      enemyFireMs: 2300, duration: 84000, clearBonus: 200,
+      enemyFireMs: 2300, duration: 84000, clearScore: 12000,
       boss: { name: '雲の主', hp: 150, fireMs: 1000, speed: 90, ways: 3 },
     },
     {
       name: '稲妻の谷', enemySpeed: 100, spawnMs: 900, toughChance: 0.25,
-      enemyFireMs: 1900, duration: 96000, clearBonus: 300,
+      enemyFireMs: 1900, duration: 96000, clearScore: 15000,
       boss: { name: '雷竜', hp: 240, fireMs: 850, speed: 110, ways: 3 },
     },
     {
       name: '炎の火山', enemySpeed: 118, spawnMs: 780, toughChance: 0.38,
-      enemyFireMs: 1600, duration: 108000, clearBonus: 400,
+      enemyFireMs: 1600, duration: 108000, clearScore: 18000,
       boss: { name: '溶岩帝王', hp: 340, fireMs: 700, speed: 130, ways: 4 },
     },
     {
       name: '宇宙要塞', enemySpeed: 138, spawnMs: 660, toughChance: 0.5,
-      enemyFireMs: 1300, duration: 120000, clearBonus: 600,
+      enemyFireMs: 1300, duration: 120000, clearScore: 20000,
       boss: { name: '要塞中枢', hp: 460, fireMs: 600, speed: 150, ways: 5 },
     },
   ],
+  // 得点の決まり方：ステージの満点 × 進み具合 −（被弾ごとの減点）。
+  // 進み具合はボス出現までで半分、ボスの体力を削りきると満点になる。
+  scoring: {
+    damagePenaltyRatio: 0.08, // 1回被弾するごとに満点の8%を減点
+    wavePhaseRatio: 0.5,      // ボス出現までで稼げる割合
+  },
   // 永続強化（買うとずっと残る）。レベルごとのコイン。
   upgrades: {
     power: { name: 'ショット強化', icon: '💥', desc: '弾の威力が上がる', costs: [40, 90, 180], perLevel: 1 },
@@ -51,9 +58,6 @@ export const DEFAULT_SHOOTER = {
   enemy: {
     toughHp: 3,
     normalHp: 1,
-    scoreNormal: 10,
-    scoreTough: 30,
-    scoreBoss: 500,
   },
   fireIntervalMinMs: 90,  // 連射間隔の下限
   // 敵を倒すと、たまに落とすパワーアップアイテム（そのプレイの間ずっと効く）。
