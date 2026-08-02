@@ -1,7 +1,7 @@
 import { getShooterView, startRun, finishRun, buyUpgrade } from './store.js';
 import {
   shooterSpriteToCells, stageAt, hits,
-  shouldDropItem, pickItemType, applyItem,
+  shouldDropItem, pickItemType, applyItem, pickEnemyType,
   stageProgress, computeScore,
 } from './lib/shooter.js';
 
@@ -289,24 +289,51 @@ function update(dt) {
   }
   run.bullets = run.bullets.filter((b) => b.y + b.h > 0);
 
-  // ザコの出現（ボス戦中は出さない）。
+  // ザコの出現（ボス戦中は出さない）。種類はステージの enemyMix から抽選。
   if (run.phase === 'wave' && now >= run.nextSpawnAt) {
     run.nextSpawnAt = now + stage.spawnMs;
-    const tough = Math.random() < stage.toughChance;
-    const w = 24;
+    const kind = pickEnemyType(stage);
+    const type = cfg.enemyTypes[kind];
+    const cellsInfo = shooterSpriteToCells(type.sprite);
+    const w = cellsInfo.w * CELL;
+    const h = cellsInfo.h * CELL;
+    const x = Math.random() * (canvas.width - w);
     run.enemies.push({
-      x: Math.random() * (canvas.width - w),
-      y: -24, w, h: 18, tough,
-      hp: tough ? cfg.enemy.toughHp : cfg.enemy.normalHp,
-      speed: stage.enemySpeed * (tough ? 0.8 : 1),
+      x, baseX: x, y: -h, w, h, kind,
+      hp: type.hp,
+      speed: stage.enemySpeed * type.speedMul,
+      dropChance: type.dropChance,
+      zigzagAmp: type.zigzagAmp || 0,
+      zigzagPhase: Math.random() * Math.PI * 2,
+      nextAimedFireAt: type.aimedFireMs ? now + type.aimedFireMs + Math.random() * 500 : null,
     });
   }
 
-  // ザコの攻撃。
+  // ザコの攻撃（下向き）。stage.enemyFireCount 体が同時に撃つ。
+  const enemyBulletSpeed = stage.enemyBulletSpeed || cfg.enemyBulletSpeed;
   if (now >= run.nextEnemyFireAt && run.enemies.length > 0) {
     run.nextEnemyFireAt = now + stage.enemyFireMs;
-    const shooter = run.enemies[Math.floor(Math.random() * run.enemies.length)];
-    run.ebullets.push({ x: shooter.x + shooter.w / 2 - 3, y: shooter.y + shooter.h, w: 7, h: 10, vx: 0, vy: cfg.enemyBulletSpeed });
+    const shuffled = [...run.enemies].sort(() => Math.random() - 0.5);
+    const shooters = shuffled.slice(0, Math.min(stage.enemyFireCount || 1, shuffled.length));
+    for (const shooter of shooters) {
+      run.ebullets.push({ x: shooter.x + shooter.w / 2 - 3, y: shooter.y + shooter.h, w: 7, h: 10, vx: 0, vy: enemyBulletSpeed });
+    }
+  }
+
+  // 狙撃タイプは、決まった間隔で自機をねらって撃つ。
+  for (const e of run.enemies) {
+    if (e.nextAimedFireAt !== null && now >= e.nextAimedFireAt) {
+      e.nextAimedFireAt = now + cfg.enemyTypes[e.kind].aimedFireMs;
+      const fx = e.x + e.w / 2;
+      const fy = e.y + e.h;
+      const dx = run.player.x - fx;
+      const dy = run.player.y - fy;
+      const len = Math.max(1, Math.hypot(dx, dy));
+      run.ebullets.push({
+        x: fx - 4, y: fy, w: 8, h: 8,
+        vx: (dx / len) * enemyBulletSpeed, vy: (dy / len) * enemyBulletSpeed,
+      });
+    }
   }
 
   // ボス出現。
@@ -335,7 +362,7 @@ function update(dt) {
       const cx = b.x + b.w / 2;
       for (let i = 0; i < ways; i += 1) {
         const spread = (i - (ways - 1) / 2) * 55;
-        run.ebullets.push({ x: cx - 4, y: b.y + b.h, w: 8, h: 12, vx: spread, vy: cfg.enemyBulletSpeed * 1.1 });
+        run.ebullets.push({ x: cx - 4, y: b.y + b.h, w: 8, h: 12, vx: spread, vy: enemyBulletSpeed * 1.1 });
       }
     }
     document.getElementById('boss-hp-fill').style.width = `${Math.max(0, (b.hp / b.maxHp) * 100)}%`;
@@ -348,8 +375,14 @@ function update(dt) {
   }
   run.ebullets = run.ebullets.filter((eb) => eb.y < canvas.height && eb.x > -20 && eb.x < canvas.width + 20);
 
-  // ザコの移動と、画面下に抜けた判定。
-  for (const e of run.enemies) e.y += e.speed * dt;
+  // ザコの移動（すばやいタイプは左右にも揺れる）と、画面下に抜けた判定。
+  for (const e of run.enemies) {
+    e.y += e.speed * dt;
+    if (e.zigzagAmp) {
+      const sway = Math.sin(now / 220 + e.zigzagPhase) * e.zigzagAmp;
+      e.x = Math.max(0, Math.min(canvas.width - e.w, e.baseX + sway));
+    }
+  }
   const escaped = run.enemies.filter((e) => e.y > canvas.height);
   if (escaped.length > 0) {
     run.enemies = run.enemies.filter((e) => e.y <= canvas.height);
@@ -478,13 +511,35 @@ function drawCells(ctx, cellsObj, centerX, bottomY, cellSize = CELL) {
   }
 }
 
-function drawBackground(ctx, canvas, now) {
-  ctx.fillStyle = '#0b1020';
+// ステージごとの背景の色味（空・奥の帯・手前の粒子2色）。
+const BG_THEMES = {
+  meadow: { sky: '#173423', far: '#2f5c3a', particle: '#7cc26b', particleAlt: '#c8e6a0' },
+  clouds: { sky: '#1b3350', far: '#33547e', particle: '#ffffff', particleAlt: '#bcd4f2' },
+  storm: { sky: '#1c1630', far: '#3a2b58', particle: '#f2c94c', particleAlt: '#8a6bd8' },
+  volcano: { sky: '#2a1210', far: '#5c2318', particle: '#fb923c', particleAlt: '#e0483b' },
+  space: { sky: '#05060f', far: '#151a33', particle: '#ffffff', particleAlt: '#7ec8e3' },
+};
+
+function drawBackground(ctx, canvas, now, theme) {
+  const t = BG_THEMES[theme] || BG_THEMES.space;
+  ctx.fillStyle = t.sky;
   ctx.fillRect(0, 0, canvas.width, canvas.height);
-  ctx.fillStyle = '#26325a';
-  for (let i = 0; i < 30; i += 1) {
-    const x = (i * 97) % canvas.width;
-    const y = ((i * 53) + (now / 12)) % canvas.height;
+  // 奥の帯（地平線・雲の層・岩盤など、テーマごとの簡単な奥行き演出）。
+  ctx.fillStyle = t.far;
+  for (let i = 0; i < 6; i += 1) {
+    const y = ((i * 90) + (now / 20)) % (canvas.height + 60) - 60;
+    ctx.fillRect(0, y, canvas.width, 18);
+  }
+  ctx.fillStyle = t.particle;
+  for (let i = 0; i < 24; i += 1) {
+    const x = (i * 83) % canvas.width;
+    const y = ((i * 61) + (now / 10)) % canvas.height;
+    ctx.fillRect(x, y, 2, 2);
+  }
+  ctx.fillStyle = t.particleAlt;
+  for (let i = 0; i < 14; i += 1) {
+    const x = (i * 131 + 40) % canvas.width;
+    const y = ((i * 97) + (now / 16)) % canvas.height;
     ctx.fillRect(x, y, 2, 2);
   }
 }
@@ -493,7 +548,7 @@ function draw() {
   const canvas = document.getElementById('shooter-canvas');
   const ctx = canvas.getContext('2d');
   ctx.imageSmoothingEnabled = false;
-  drawBackground(ctx, canvas, run.elapsed);
+  drawBackground(ctx, canvas, run.elapsed, run.stage.bgTheme);
 
   // 自機の弾
   ctx.fillStyle = '#f5e08a';
@@ -505,11 +560,13 @@ function draw() {
   }
 
   for (const e of run.enemies) {
-    drawCells(ctx, shooterSpriteToCells(e.tough ? 'enemyTough' : 'enemy'), e.x + e.w / 2, e.y + e.h);
+    const sprite = view.config.enemyTypes[e.kind]?.sprite || 'enemyNormal';
+    drawCells(ctx, shooterSpriteToCells(sprite), e.x + e.w / 2, e.y + e.h);
   }
 
   if (run.boss) {
-    drawCells(ctx, shooterSpriteToCells('boss'), run.boss.x + run.boss.w / 2, run.boss.y + run.boss.h, 6);
+    const bossSprite = run.stage.boss.sprite || 'bossMeadow';
+    drawCells(ctx, shooterSpriteToCells(bossSprite), run.boss.x + run.boss.w / 2, run.boss.y + run.boss.h, 6);
   }
 
   for (const it of run.items) {

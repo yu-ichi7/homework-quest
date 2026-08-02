@@ -12,35 +12,82 @@ export const DEFAULT_SHOOTER = {
     playerSpeed: 200,     // 自機の移動速度（px/秒）
   },
   invincibleMs: 1200,     // 被弾後の無敵時間
-  enemyBulletSpeed: 150,  // 敵の弾の速さ（px/秒）
-  // 5つのステージ。だんだん敵が速く・多く・よく撃つようになる。
-  // duration: ボスが出るまでの時間(ms)。
-  // clearScore: そのステージをノーミスでクリアしたときの満点。
+  enemyBulletSpeed: 150,  // 敵の弾の速さ（px/秒）の既定値（各ステージで上書きされる）
+  // 敵の種類。ステージごとの enemyMix でどの種類がどれくらい出るか決まる。
+  // dropChance: 倒したときにアイテムを落とす確率。zigzagAmp: 左右に揺れる幅(px)。
+  // aimedFireMs: この間隔で自機を狙って弾を撃つ（gunnerのみ）。
+  enemyTypes: {
+    normal: { name: 'ふつう', hp: 1, speedMul: 1.0, sprite: 'enemyNormal', dropChance: 0.14 },
+    tough: { name: 'かたい', hp: 3, speedMul: 0.75, sprite: 'enemyTough', dropChance: 0.45 },
+    swift: { name: 'すばやい', hp: 1, speedMul: 1.55, sprite: 'enemySwift', zigzagAmp: 70, dropChance: 0.12 },
+    gunner: { name: '狙撃', hp: 2, speedMul: 0.85, sprite: 'enemyGunner', aimedFireMs: 2200, dropChance: 0.3 },
+  },
+  // 5つのステージ。だんだん敵が速く・多く・よく撃つようになり、種類も増える。
+  // duration: ボスが出るまでの時間(ms)。clearScore: ノーミスでクリアしたときの満点。
+  // enemyMix: 出現する敵の種類と重み。enemyFireCount: 1回の攻撃で何体が同時に撃つか。
+  // bgTheme: ステージごとの背景の見た目。boss.sprite: ボスのドット絵。
   stages: [
     {
-      name: '緑の草原', enemySpeed: 70, spawnMs: 1250, toughChance: 0.05,
-      enemyFireMs: 2800, duration: 72000, clearScore: 10000,
-      boss: { name: '緑の守護者', hp: 90, fireMs: 1200, speed: 70, ways: 2 },
+      name: '緑の草原', bgTheme: 'meadow',
+      enemySpeed: 85, spawnMs: 950,
+      enemyFireMs: 2000, enemyFireCount: 1, enemyBulletSpeed: 165,
+      enemyMix: [
+        { type: 'normal', weight: 8 },
+        { type: 'tough', weight: 2 },
+      ],
+      duration: 72000, clearScore: 10000,
+      boss: { name: '緑の守護者', sprite: 'bossMeadow', hp: 160, fireMs: 900, speed: 90, ways: 3 },
     },
     {
-      name: '雲の海', enemySpeed: 85, spawnMs: 1050, toughChance: 0.15,
-      enemyFireMs: 2300, duration: 84000, clearScore: 12000,
-      boss: { name: '雲の主', hp: 150, fireMs: 1000, speed: 90, ways: 3 },
+      name: '雲の海', bgTheme: 'clouds',
+      enemySpeed: 105, spawnMs: 800,
+      enemyFireMs: 1600, enemyFireCount: 1, enemyBulletSpeed: 185,
+      enemyMix: [
+        { type: 'normal', weight: 5 },
+        { type: 'tough', weight: 2 },
+        { type: 'swift', weight: 3 },
+      ],
+      duration: 84000, clearScore: 12000,
+      boss: { name: '雲の主', sprite: 'bossClouds', hp: 260, fireMs: 750, speed: 110, ways: 4 },
     },
     {
-      name: '稲妻の谷', enemySpeed: 100, spawnMs: 900, toughChance: 0.25,
-      enemyFireMs: 1900, duration: 96000, clearScore: 15000,
-      boss: { name: '雷竜', hp: 240, fireMs: 850, speed: 110, ways: 3 },
+      name: '稲妻の谷', bgTheme: 'storm',
+      enemySpeed: 125, spawnMs: 680,
+      enemyFireMs: 1300, enemyFireCount: 2, enemyBulletSpeed: 205,
+      enemyMix: [
+        { type: 'normal', weight: 4 },
+        { type: 'tough', weight: 2 },
+        { type: 'swift', weight: 3 },
+        { type: 'gunner', weight: 2 },
+      ],
+      duration: 96000, clearScore: 15000,
+      boss: { name: '雷竜', sprite: 'bossStorm', hp: 380, fireMs: 620, speed: 130, ways: 4 },
     },
     {
-      name: '炎の火山', enemySpeed: 118, spawnMs: 780, toughChance: 0.38,
-      enemyFireMs: 1600, duration: 108000, clearScore: 18000,
-      boss: { name: '溶岩帝王', hp: 340, fireMs: 700, speed: 130, ways: 4 },
+      name: '炎の火山', bgTheme: 'volcano',
+      enemySpeed: 145, spawnMs: 560,
+      enemyFireMs: 1050, enemyFireCount: 2, enemyBulletSpeed: 225,
+      enemyMix: [
+        { type: 'normal', weight: 3 },
+        { type: 'tough', weight: 3 },
+        { type: 'swift', weight: 2 },
+        { type: 'gunner', weight: 3 },
+      ],
+      duration: 108000, clearScore: 18000,
+      boss: { name: '溶岩帝王', sprite: 'bossVolcano', hp: 520, fireMs: 520, speed: 150, ways: 5 },
     },
     {
-      name: '宇宙要塞', enemySpeed: 138, spawnMs: 660, toughChance: 0.5,
-      enemyFireMs: 1300, duration: 120000, clearScore: 20000,
-      boss: { name: '要塞中枢', hp: 460, fireMs: 600, speed: 150, ways: 5 },
+      name: '宇宙要塞', bgTheme: 'space',
+      enemySpeed: 165, spawnMs: 460,
+      enemyFireMs: 850, enemyFireCount: 3, enemyBulletSpeed: 245,
+      enemyMix: [
+        { type: 'normal', weight: 2 },
+        { type: 'tough', weight: 3 },
+        { type: 'swift', weight: 2 },
+        { type: 'gunner', weight: 4 },
+      ],
+      duration: 120000, clearScore: 20000,
+      boss: { name: '要塞中枢', sprite: 'bossFortress', hp: 700, fireMs: 420, speed: 170, ways: 6 },
     },
   ],
   // 得点の決まり方：ステージの満点 × 進み具合 −（被弾ごとの減点）。
@@ -55,15 +102,10 @@ export const DEFAULT_SHOOTER = {
     rapid: { name: '連射速度', icon: '⚡', desc: '弾を速く撃てる', costs: [50, 110, 220], perLevel: -50 },
     life: { name: 'ライフ増加', icon: '❤️', desc: 'ライフが1つ増える', costs: [60, 140, 260], perLevel: 1 },
   },
-  enemy: {
-    toughHp: 3,
-    normalHp: 1,
-  },
   fireIntervalMinMs: 90,  // 連射間隔の下限
   // 敵を倒すと、たまに落とすパワーアップアイテム（そのプレイの間ずっと効く）。
   items: {
-    dropChanceNormal: 0.16,  // ふつうの敵が落とす確率
-    dropChanceTough: 0.5,    // かたい敵が落とす確率
+    dropChanceNormal: 0.14,  // 敵ごとの dropChance が無いときの既定値
     fallSpeed: 90,           // 落ちる速さ（px/秒）
     maxLives: 6,             // ライフの上限
     types: [

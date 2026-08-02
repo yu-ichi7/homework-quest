@@ -60,10 +60,15 @@ function ensureShape(data) {
     for (const [k, v] of Object.entries(DEFAULT_CONFIG.shooter)) {
       if (data.config.shooter[k] === undefined) { data.config.shooter[k] = v; changed = true; }
     }
-    // 得点を「ノーミスでクリア＝満点」方式に作り直したので、
-    // 旧ステージ定義（clearBonus 制）は新しい定義に差し替える。
-    if (!data.config.shooter.stages?.[0]?.clearScore) {
+    // 得点方式の作り直し・敵の種類追加・背景/ボスのバリエーション追加のたびに
+    // ステージ定義を拡張してきたので、bgTheme が無い＝旧い定義は丸ごと差し替える。
+    if (!data.config.shooter.stages?.[0]?.bgTheme) {
       data.config.shooter.stages = DEFAULT_CONFIG.shooter.stages;
+      changed = true;
+    }
+    // 敵の種類（ふつう/かたい/すばやい/狙撃）の定義。
+    if (!data.config.shooter.enemyTypes) {
+      data.config.shooter.enemyTypes = DEFAULT_CONFIG.shooter.enemyTypes;
       changed = true;
     }
     // 1プレイの旧価格（50コイン）は新価格へ。

@@ -15,23 +15,46 @@ const SPRITES_SHOOTER = {
     '...ww...',
     '..w..w..',
   ],
-  // ふつうの敵
-  enemy: [
-    '..r..r..',
-    '.rrrrrr.',
-    'rrkrrkrr',
-    'rrrrrrrr',
-    '.rrrrrr.',
-    '..r..r..',
+  // ふつうの敵機（オレンジ。ハート型アイテムと紛らわしくないよう、
+  // 丸い体ではなく機首を下にした飛行機のシルエットにしてある）
+  enemyNormal: [
+    '.c..c..c.',
+    'cc.ccc.cc',
+    '.ckkkkkc.',
+    '..ckkkc..',
+    '...ccc...',
+    '....c....',
+    '....c....',
   ],
-  // かたい敵
+  // かたい敵（大型の爆撃機。両脇に黄色いエンジンが2つ）
   enemyTough: [
-    '.v.vv.v.',
-    'vvvvvvvv',
-    'vv0vv0vv',
-    'vvvvvvvv',
-    'vvvvvvvv',
-    '.vv..vv.',
+    '..v....v..',
+    '.vv....vv.',
+    'vvvvvvvvvv',
+    'vvllvvllvv',
+    'vvvvvvvvvv',
+    '.vvvvvvvv.',
+    '..vvvvvv..',
+    '...vvvv...',
+  ],
+  // すばやい敵（小さく細い機体。左右に揺れながら降りてくる）
+  enemySwift: [
+    '...u...',
+    '..uuu..',
+    '.uuuuu.',
+    'uu.u.uu',
+    '.u...u.',
+    '...u...',
+  ],
+  // 狙い撃ちしてくる敵（銀色の機体。赤い銃口が目立つ）
+  enemyGunner: [
+    '....e....',
+    '...eee...',
+    '..erere..',
+    '.eeeeeee.',
+    'ee.rrr.ee',
+    '.ee...ee.',
+    '..e...e..',
   ],
   bullet: [
     '.0.',
@@ -45,16 +68,60 @@ const SPRITES_SHOOTER = {
     'vrv',
     '.v.',
   ],
-  // ボス（大きめ）
-  boss: [
+  // ボス（ステージごとに色違い。形は共通で、テーマカラーだけ変えている）
+  bossMeadow: [
+    '..kk....kk..',
+    '.kggk..kggk.',
+    'kggggkkggggk',
+    'ggyggggggygg',
+    'ggggkkkkgggg',
+    'ggkggggggkgg',
+    '.gggggggggg.',
+    '..gg.gg.gg..',
+    '...k.....k..',
+  ],
+  bossClouds: [
+    '..kk....kk..',
+    '.kuuk..kuuk.',
+    'kuuuukkuuuuk',
+    'uuwuuuuuuwuu',
+    'uuuukkkkuuuu',
+    'uukuuuuuukuu',
+    '.uuuuuuuuuu.',
+    '..uu.uu.uu..',
+    '...k.....k..',
+  ],
+  bossStorm: [
+    '..kk....kk..',
+    '.kvvk..kvvk.',
+    'kvvvvkkvvvvk',
+    'vvlvvvvvvlvv',
+    'vvvvkkkkvvvv',
+    'vvkvvvvvvkvv',
+    '.vvvvvvvvvv.',
+    '..vv.vv.vv..',
+    '...k.....k..',
+  ],
+  bossVolcano: [
     '..kk....kk..',
     '.krrk..krrk.',
     'krrrrkkrrrrk',
-    'rr0rrrrrr0rr',
+    'rrcrrrrrrcrr',
     'rrrrkkkkrrrr',
     'rrkrrrrrrkrr',
     '.rrrrrrrrrr.',
     '..rr.rr.rr..',
+    '...k.....k..',
+  ],
+  bossFortress: [
+    '..kk....kk..',
+    '.keek..keek.',
+    'keeeekkeeeek',
+    'eereeeeeeree',
+    'eeeekkkkeeee',
+    'eekeeeeeekee',
+    '.eeeeeeeeee.',
+    '..ee.ee.ee..',
     '...k.....k..',
   ],
   boom: [
@@ -154,6 +221,21 @@ export function maxUpgradeLevel(kind, config) {
   return (config.upgrades[kind]?.costs || []).length;
 }
 
+// ---- 敵 ----
+
+// そのステージの敵の混成（enemyMix）から重み付き抽選で1種類選ぶ。
+// rand は 0〜1（テストしやすいよう外から渡せる）。
+export function pickEnemyType(stage, rand = Math.random()) {
+  const mix = stage.enemyMix || [{ type: 'normal', weight: 1 }];
+  const total = mix.reduce((s, m) => s + (m.weight || 1), 0);
+  let point = rand * total;
+  for (const m of mix) {
+    point -= (m.weight || 1);
+    if (point < 0) return m.type;
+  }
+  return mix[mix.length - 1].type;
+}
+
 // ---- アイテム ----
 
 // 重み付き抽選でアイテムの種類を1つ選ぶ。rand は 0〜1（テストしやすいよう外から渡せる）。
@@ -168,10 +250,9 @@ export function pickItemType(config, rand = Math.random()) {
   return types[types.length - 1];
 }
 
-// この敵を倒したとき、アイテムを落とすか。
+// この敵を倒したとき、アイテムを落とすか（落とす確率は敵の種類ごとに決まる）。
 export function shouldDropItem(enemy, config, rand = Math.random()) {
-  const chance = enemy.tough ? config.items.dropChanceTough : config.items.dropChanceNormal;
-  return rand < chance;
+  return rand < (enemy.dropChance ?? config.items.dropChanceNormal);
 }
 
 // アイテムを取ったときの、機体性能への反映（純粋関数）。
