@@ -61,6 +61,14 @@ const SPRITES_SHOOTER = {
     '000',
     '.0.',
   ],
+  // 護衛機（自機の周りをくるくる回る小さな機体）
+  escort: [
+    '..b..',
+    '.bbb.',
+    'bbwbb',
+    '.bbb.',
+    '..b..',
+  ],
   // 敵の弾（下向き）
   enemyBullet: [
     '.v.',
@@ -179,6 +187,7 @@ export function planeStats(upgrades, config) {
     lives: Math.max(1, lives),
     bulletSpeed: config.base.bulletSpeed,
     playerSpeed: config.base.playerSpeed,
+    escortLevel: up.escort || 0,
   };
 }
 

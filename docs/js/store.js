@@ -76,6 +76,16 @@ function ensureShape(data) {
       data.config.shooter.playCost = DEFAULT_CONFIG.shooter.playCost;
       changed = true;
     }
+    // 出撃前アイテム（体当たり）の設定。
+    if (!data.config.shooter.ramItem) {
+      data.config.shooter.ramItem = DEFAULT_CONFIG.shooter.ramItem;
+      changed = true;
+    }
+    // 護衛機の永続強化を後付け。
+    if (!data.config.shooter.upgrades.escort) {
+      data.config.shooter.upgrades.escort = DEFAULT_CONFIG.shooter.upgrades.escort;
+      changed = true;
+    }
   }
   // シューティングの記録・永続強化。
   if (!data.shooter) {
@@ -87,6 +97,9 @@ function ensureShape(data) {
   } else {
     if (!data.shooter.upgrades) {
       data.shooter.upgrades = { ...DEFAULT_SHOOTER_STATE.upgrades };
+      changed = true;
+    } else if (data.shooter.upgrades.escort === undefined) {
+      data.shooter.upgrades.escort = 0;
       changed = true;
     }
     if (data.shooter.cleared === undefined) { data.shooter.cleared = 0; changed = true; }
@@ -408,6 +421,8 @@ export function getShooterView() {
   return {
     balance: balance(data.game),
     playCost: cfg.playCost,
+    ramCost: cfg.ramItem.cost,
+    ramMax: cfg.ramItem.max,
     highScore: s.highScore || 0,
     totalKills: s.totalKills || 0,
     plays: s.plays || 0,
@@ -419,17 +434,19 @@ export function getShooterView() {
   };
 }
 
-// コインを払って出撃する。戻り値の stats がそのプレイの機体性能。
-export function startRun(stageIndex = 0) {
+// コインを払って出撃する。ramCount は体当たりアイテムの購入数（0〜ramItem.max）。
+// 戻り値の stats がそのプレイの機体性能。
+export function startRun(stageIndex = 0, ramCount = 0) {
   const data = load();
   const cfg = data.config.shooter;
   if (!cfg.stages[stageIndex]) return { ok: false, reason: 'no-stage' };
   if (!isStageUnlocked(stageIndex, data.shooter.cleared || 0)) return { ok: false, reason: 'locked' };
-  const cost = cfg.playCost;
+  const ram = Math.max(0, Math.min(cfg.ramItem.max, ramCount || 0));
+  const cost = cfg.playCost + ram * cfg.ramItem.cost;
   if (balance(data.game) < cost) return { ok: false, reason: 'not-enough', cost };
   data.game.coinsSpent = (data.game.coinsSpent || 0) + cost;
   save(data);
-  return { ok: true, cost, stageIndex, stats: planeStats(data.shooter.upgrades, cfg) };
+  return { ok: true, cost, stageIndex, ramCount: ram, stats: planeStats(data.shooter.upgrades, cfg) };
 }
 
 // ゲーム終了時。ハイスコア・累計と、どこまでクリアしたか（ステージ解放）を保存する。

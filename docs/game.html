@@ -22,12 +22,19 @@
   </header>
   <main class="app-main">
 
-    <div class="subtabs" id="subtabs">
-      <button class="subtab active" data-tab="shooter"><span class="emoji">🚀</span>シューティング</button>
-      <button class="subtab" data-tab="pet"><span class="emoji">🐾</span>ペット</button>
+    <div class="game-menu" id="game-menu">
+      <button class="menu-card" data-tab="shooter">
+        <span class="menu-card-icon">🚀</span>
+        <span class="menu-card-label">シューティング</span>
+      </button>
+      <button class="menu-card" data-tab="pet">
+        <span class="menu-card-icon">🐾</span>
+        <span class="menu-card-label">ペット</span>
+      </button>
     </div>
 
-    <div id="tab-shooter" class="game-tab">
+    <div id="tab-shooter" class="game-tab" hidden>
+      <button class="back-to-menu" data-back>← ゲームメニュー</button>
       <section class="panel">
         <div class="coin-row">
           <div class="coin-badge"><span class="emoji">🪙</span><span id="shooter-coin">-</span></div>
@@ -41,8 +48,20 @@
       <section class="panel">
         <h2>ステージを選ぶ</h2>
         <div class="stage-list" id="stage-list"></div>
+
+        <div class="ram-picker">
+          <div class="ram-info">
+            <div class="name">💢 体当たり <span id="ram-count">0</span>/<span id="ram-max">5</span></div>
+            <div class="sub">体当たりした敵をノーダメージで倒せる（🪙<span id="ram-cost">10</span>/個・出撃前に購入）</div>
+          </div>
+          <div class="stepper">
+            <button class="btn small secondary" id="ram-minus" type="button">−</button>
+            <button class="btn small secondary" id="ram-plus" type="button">＋</button>
+          </div>
+        </div>
+
         <button class="btn" id="shooter-start-btn" style="width:100%; margin-top:12px">
-          出撃（🪙 <span id="play-cost">30</span>）
+          出撃（🪙 <span id="total-cost">30</span>）
         </button>
         <p class="play-hint">画面を指でなぞって移動（前後にも動ける）・弾は自動。<br>
           アイテムを取ると強くなる（💥威力 ⚡連射 ❤️体力）。<br>
@@ -57,6 +76,7 @@
     </div>
 
     <div id="tab-pet" class="game-tab" hidden>
+      <button class="back-to-menu" data-back>← ゲームメニュー</button>
       <section class="panel" id="pet-picker-panel" hidden>
         <h2>育てる子を選ぶ</h2>
         <div id="pet-picker"></div>
@@ -107,6 +127,7 @@
         <div id="hud-stage">第1面</div>
         <div id="hud-power">💥1</div>
         <div id="hud-lives">❤❤❤</div>
+        <div id="hud-ram" hidden>💢0</div>
       </div>
       <div class="boss-bar" id="boss-bar" hidden>
         <div class="boss-bar-label">👾 <span id="boss-name">-</span></div>

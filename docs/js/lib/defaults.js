@@ -101,7 +101,10 @@ export const DEFAULT_SHOOTER = {
     power: { name: 'ショット強化', icon: '💥', desc: '弾の威力が上がる', costs: [40, 90, 180], perLevel: 1 },
     rapid: { name: '連射速度', icon: '⚡', desc: '弾を速く撃てる', costs: [50, 110, 220], perLevel: -50 },
     life: { name: 'ライフ増加', icon: '❤️', desc: 'ライフが1つ増える', costs: [60, 140, 260], perLevel: 1 },
+    escort: { name: '護衛機', icon: '🛰️', desc: '機体の周りを飛び、自動で弾を撃つ小さな護衛機がつく', costs: [500], perLevel: 1 },
   },
+  // 出撃前に買う消耗アイテム。体当たりした敵をノーダメージで倒せる（1回で1つ消費）。
+  ramItem: { cost: 10, max: 5 },
   fireIntervalMinMs: 90,  // 連射間隔の下限
   // 敵を倒すと、たまに落とすパワーアップアイテム（そのプレイの間ずっと効く）。
   items: {
@@ -142,7 +145,7 @@ export const DEFAULT_GAME_STATE = {
 
 // シューティングの記録と永続強化。
 export const DEFAULT_SHOOTER_STATE = {
-  upgrades: { power: 0, rapid: 0, life: 0 },
+  upgrades: { power: 0, rapid: 0, life: 0, escort: 0 },
   highScore: 0,
   totalKills: 0,
   plays: 0,

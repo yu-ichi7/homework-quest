@@ -14,6 +14,7 @@ let run = null;           // プレイ中の状態（null ならプレイして�
 let rafId = null;
 let lastFrame = 0;
 let selectedStage = 0;    // 選択中のステージ（0始まり）
+let selectedRam = 0;      // 出撃前に買う「体当たり」の個数
 
 // 指でなぞった位置（この座標に自機が寄っていく）。null なら動かさない。
 let touchX = null;
@@ -23,6 +24,8 @@ function init() {
   document.getElementById('shooter-start-btn').onclick = handleStart;
   document.getElementById('overlay-quit').onclick = () => quitRun();
   document.getElementById('modal-ok').onclick = () => { document.getElementById('modal').hidden = true; };
+  document.getElementById('ram-minus').onclick = () => { selectedRam = Math.max(0, selectedRam - 1); renderRamPicker(); };
+  document.getElementById('ram-plus').onclick = () => { selectedRam = Math.min(view.ramMax, selectedRam + 1); renderRamPicker(); };
   wireControls();
   document.addEventListener('game-tab-changed', (e) => {
     if (e.detail.tab === 'shooter') { if (run) startLoop(); } else { stopLoop(); touchX = null; touchY = null; }
@@ -38,11 +41,21 @@ function render() {
   document.getElementById('shooter-highscore').textContent = view.highScore;
   document.getElementById('shooter-kills').textContent = view.totalKills;
   document.getElementById('shooter-plays').textContent = view.plays;
-  document.getElementById('play-cost').textContent = view.playCost;
   // 解放済みで、まだ選べる位置に補正する。
   if (view.stages[selectedStage]?.locked) selectedStage = view.cleared;
+  selectedRam = Math.max(0, Math.min(view.ramMax, selectedRam));
   renderStages();
   renderUpgrades();
+  renderRamPicker();
+}
+
+function renderRamPicker() {
+  document.getElementById('ram-count').textContent = selectedRam;
+  document.getElementById('ram-max').textContent = view.ramMax;
+  document.getElementById('ram-cost').textContent = view.ramCost;
+  document.getElementById('ram-minus').disabled = selectedRam <= 0;
+  document.getElementById('ram-plus').disabled = selectedRam >= view.ramMax;
+  document.getElementById('total-cost').textContent = view.playCost + selectedRam * view.ramCost;
 }
 
 function renderStages() {
@@ -111,7 +124,7 @@ function closeOverlay() {
 
 function handleStart() {
   if (run) return;
-  const res = startRun(selectedStage);
+  const res = startRun(selectedStage, selectedRam);
   const msg = document.getElementById('shooter-msg');
   if (!res.ok) {
     msg.textContent = res.reason === 'not-enough' ? `🪙が足りません（${res.cost}コイン必要）`
@@ -129,6 +142,9 @@ function handleStart() {
     clearedIndex: 0,          // このプレイでクリアしたステージ数
     elapsed: 0,               // ループが動いている間だけ進む時間（ms）
     player: { x: canvas.width / 2, y: canvas.height - PLAYER_BOTTOM },
+    ramCharges: res.ramCount, // 体当たりアイテムの残数
+    escort: null,
+    nextEscortFireAt: 0,
     bullets: [],
     enemies: [],
     ebullets: [],
@@ -289,6 +305,22 @@ function update(dt) {
   }
   run.bullets = run.bullets.filter((b) => b.y + b.h > 0);
 
+  // 護衛機（買っていれば）。自機の周りをくるくる回りながら、自動で弾を撃つ。
+  if (s.escortLevel > 0) {
+    const angle = now / 500;
+    const radius = 28;
+    run.escort = {
+      x: run.player.x + Math.cos(angle) * radius,
+      y: run.player.y + Math.sin(angle) * radius * 0.6,
+    };
+    if (now >= run.nextEscortFireAt) {
+      run.nextEscortFireAt = now + 500;
+      run.bullets.push({ x: run.escort.x - 2, y: run.escort.y - 8, w: 5, h: 8, power: 1 });
+    }
+  } else {
+    run.escort = null;
+  }
+
   // ザコの出現（ボス戦中は出さない）。種類はステージの enemyMix から抽選。
   if (run.phase === 'wave' && now >= run.nextSpawnAt) {
     run.nextSpawnAt = now + stage.spawnMs;
@@ -395,7 +427,7 @@ function update(dt) {
     let hit = false;
     for (const e of run.enemies) {
       if (e.hp > 0 && hits(sweep, e)) {
-        e.hp -= s.power;
+        e.hp -= (b.power ?? s.power);
         hit = true;
         if (e.hp <= 0) {
           run.kills += 1;
@@ -409,7 +441,7 @@ function update(dt) {
       }
     }
     if (!hit && run.boss && run.boss.hp > 0 && hits(sweep, run.boss)) {
-      run.boss.hp -= s.power;
+      run.boss.hp -= (b.power ?? s.power);
       hit = true;
       run.booms.push({ x: b.x, y: b.y, until: now + 160 });
     }
@@ -461,8 +493,24 @@ function update(dt) {
     if (hitBullets.length > 0 || crashed.length > 0) {
       run.ebullets = run.ebullets.filter((eb) => !hitBullets.includes(eb));
       run.enemies = run.enemies.filter((e) => !crashed.includes(e));
-      for (const e of crashed) run.booms.push({ x: e.x + e.w / 2, y: e.y + e.h / 2, until: now + 260 });
-      damagePlayer(1, cfg);
+
+      // 体当たりアイテムがあれば、ぶつかった敵から先にノーダメージで倒す。
+      const rammed = crashed.slice(0, run.ramCharges);
+      const unrammed = crashed.slice(run.ramCharges);
+      run.ramCharges -= rammed.length;
+      for (const e of rammed) {
+        run.kills += 1;
+        run.booms.push({ x: e.x + e.w / 2, y: e.y + e.h / 2, until: now + 260 });
+        if (shouldDropItem(e, cfg)) {
+          const type = pickItemType(cfg);
+          run.items.push({ x: e.x + e.w / 2 - 10, y: e.y, w: 20, h: 20, type });
+        }
+      }
+      for (const e of unrammed) run.booms.push({ x: e.x + e.w / 2, y: e.y + e.h / 2, until: now + 260 });
+
+      if (hitBullets.length > 0 || unrammed.length > 0) {
+        damagePlayer(1, cfg);
+      }
     }
   }
 
@@ -475,6 +523,9 @@ function update(dt) {
   document.getElementById('hud-score').textContent = run.score;
   document.getElementById('hud-power').textContent = `💥${run.stats.power}`;
   document.getElementById('hud-lives').textContent = '❤'.repeat(Math.max(0, run.lives));
+  const hudRam = document.getElementById('hud-ram');
+  hudRam.hidden = run.ramCharges <= 0;
+  hudRam.textContent = `💢${run.ramCharges}`;
 
   if (run.lives <= 0 && !run.over) {
     run.over = true;
@@ -581,6 +632,11 @@ function draw() {
   const blinking = run.elapsed < run.invincibleUntil && Math.floor(run.elapsed / 100) % 2 === 0;
   if (!blinking) {
     drawCells(ctx, shooterSpriteToCells('player'), run.player.x, run.player.y);
+  }
+
+  // 護衛機。
+  if (run.escort) {
+    drawCells(ctx, shooterSpriteToCells('escort'), run.escort.x, run.escort.y, 2);
   }
 
   // アイテムを取ったときのひとこと。
