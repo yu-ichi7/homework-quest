@@ -4,8 +4,9 @@
 
 import {
   DEFAULT_CONFIG, DEFAULT_CHILDREN, DEFAULT_TASKS, DEFAULT_GAME_STATE,
-  DEFAULT_SHOOTER_STATE,
+  DEFAULT_SHOOTER_STATE, DEFAULT_LOGIN_STATE,
 } from './lib/defaults.js';
+import { canClaimToday, nextLoginStreak, computeLoginReward } from './lib/login.js';
 import { recomputeChild } from './lib/progress.js';
 import { expandForDay, withCompletionState } from './lib/taskExpand.js';
 import {
@@ -45,6 +46,7 @@ function seed() {
     pet: null,
     petAlbum: [],
     iceCream: { earned: 0, used: 0 },
+    login: { ...DEFAULT_LOGIN_STATE },
     config: DEFAULT_CONFIG,
   };
 }
@@ -140,6 +142,10 @@ function ensureShape(data) {
   if (!Array.isArray(data.petAlbum)) { data.petAlbum = []; changed = true; }
   if (!data.iceCream || typeof data.iceCream !== 'object') { data.iceCream = { earned: 0, used: 0 }; changed = true; }
   if (data.config.iceCreamStreak === undefined) { data.config.iceCreamStreak = DEFAULT_CONFIG.iceCreamStreak; changed = true; }
+
+  // デイリーボーナス。
+  if (!data.config.loginBonus) { data.config.loginBonus = DEFAULT_CONFIG.loginBonus; changed = true; }
+  if (!data.login || typeof data.login !== 'object') { data.login = { ...DEFAULT_LOGIN_STATE }; changed = true; }
 
   if (data.version !== DATA_VERSION) { data.version = DATA_VERSION; changed = true; }
   return { data, changed };
@@ -571,6 +577,38 @@ export function graduatePet() {
   data.pet = null;
   save(data);
   return { album: data.petAlbum };
+}
+
+// ---- デイリーボーナス ----
+
+export function getLoginBonusView() {
+  const data = load();
+  const today = todayStr();
+  const yesterday = addDays(today, -1);
+  const claimable = canClaimToday(data.login, today);
+  return {
+    claimable,
+    streak: claimable ? nextLoginStreak(data.login, today, yesterday) : (data.login.streak || 0),
+    longestStreak: data.login.longestStreak || 0,
+    totalClaims: data.login.totalClaims || 0,
+  };
+}
+
+// きょうぶんを受け取る。呼ぶたびに新しい乱数で「おまけ」が決まる（演出用にランダム性は毎回そのまま）。
+export function claimLoginBonus() {
+  const data = load();
+  const today = todayStr();
+  const yesterday = addDays(today, -1);
+  if (!canClaimToday(data.login, today)) return { ok: false, reason: 'already-claimed' };
+  const streak = nextLoginStreak(data.login, today, yesterday);
+  const reward = computeLoginReward(streak, data.config.loginBonus);
+  data.login.streak = streak;
+  data.login.longestStreak = Math.max(data.login.longestStreak || 0, streak);
+  data.login.lastClaimDate = today;
+  data.login.totalClaims = (data.login.totalClaims || 0) + 1;
+  data.game.coinsEarned = (data.game.coinsEarned || 0) + reward.totalCoins;
+  save(data);
+  return { ok: true, streak, reward, longestStreak: data.login.longestStreak };
 }
 
 // ---- アイスクリームバッジ ----

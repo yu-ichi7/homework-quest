@@ -68,6 +68,29 @@ body {
   color: #fff; margin-right: 8px; font-size: 17px;
 }
 
+/* デイリーボーナス */
+.login-bonus { text-align: center; }
+.login-head { display: flex; justify-content: space-between; align-items: center; margin-bottom: 8px; }
+.login-title { font-weight: 800; font-size: 15px; }
+.login-streak { font-weight: 800; font-size: 13px; color: var(--warn); }
+.gift-box {
+  border: none; background: var(--accent-soft); border-radius: 16px;
+  width: 72px; height: 72px; font-size: 34px; cursor: pointer; margin: 4px auto;
+  display: block; transition: transform 0.08s;
+}
+.gift-box:active { transform: scale(0.92); }
+.gift-box:disabled { opacity: 0.5; cursor: default; }
+.gift-box.shaking { animation: gift-shake 0.55s ease; pointer-events: none; }
+.gift-box[hidden] { display: none; }
+@keyframes gift-shake {
+  0%, 100% { transform: rotate(0) scale(1); }
+  15% { transform: rotate(-10deg) scale(1.05); }
+  30% { transform: rotate(10deg) scale(1.05); }
+  45% { transform: rotate(-8deg) scale(1.1); }
+  60% { transform: rotate(8deg) scale(1.1); }
+  80% { transform: rotate(0) scale(1.15); }
+}
+
 /* 子ども切り替えタブ */
 .child-tabs { display: flex; gap: 10px; margin-bottom: 16px; }
 .child-tab {

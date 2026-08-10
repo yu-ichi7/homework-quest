@@ -1,4 +1,7 @@
-import { getChildren, getConfig, getToday, addCompletion, removeCompletion } from './store.js';
+import {
+  getChildren, getConfig, getToday, addCompletion, removeCompletion,
+  getLoginBonusView, claimLoginBonus,
+} from './store.js';
 import { levelProgress } from './lib/levels.js';
 import { flameTier } from './lib/streak.js';
 
@@ -14,7 +17,46 @@ function init() {
   // 一人用：先頭の子をそのまま使う。
   state.selectedId = state.children[0]?.id;
   renderOwner();
+  document.getElementById('login-claim-btn').onclick = handleClaimLoginBonus;
+  renderLoginBonus();
   refresh();
+}
+
+// ---- デイリーボーナス ----
+
+function renderLoginBonus() {
+  const view = getLoginBonusView();
+  document.getElementById('login-streak').textContent = `🔥${view.streak}日目`;
+  const btn = document.getElementById('login-claim-btn');
+  const msg = document.getElementById('login-msg');
+  btn.hidden = !view.claimable;
+  if (view.claimable) {
+    msg.textContent = 'タップして受け取ろう！';
+  } else {
+    msg.textContent = '今日はもう受け取ったよ。また明日！';
+  }
+}
+
+let claimingLoginBonus = false;
+function handleClaimLoginBonus() {
+  if (claimingLoginBonus) return;
+  claimingLoginBonus = true;
+  const btn = document.getElementById('login-claim-btn');
+  btn.disabled = true;
+  btn.classList.add('shaking');
+  setTimeout(() => {
+    btn.classList.remove('shaking');
+    const res = claimLoginBonus();
+    claimingLoginBonus = false;
+    renderLoginBonus();
+    if (!res.ok) return;
+    const r = res.reward;
+    let text = `🔥${res.streak}日目 ・ 🪙+${r.baseCoins}`;
+    if (r.gotBonus) text += `\nおまけ当たり！ 🪙+${r.bonusCoins}`;
+    if (r.isMilestone) text += `\n${res.streak}日達成ボーナス！ 🪙+${r.milestoneCoins}`;
+    const emoji = r.isMilestone ? '🎉' : (r.gotBonus ? '✨' : '🎁');
+    showModal(emoji, 'デイリーボーナス！', text);
+  }, 550);
 }
 
 // ヘッダー下に「だれのページか」を名前で表示する。

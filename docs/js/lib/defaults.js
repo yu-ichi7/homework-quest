@@ -143,6 +143,28 @@ export const DEFAULT_GAME_STATE = {
   coinsSpent: 0,
 };
 
+// デイリーボーナス（毎日アプリを開くともらえる）。
+// 連続日数が伸びるほど基本コインが増え（capDaysで頭打ち）、
+// おまけの当たり（bonusCoins）も出やすくなる。milestones の日はさらに特別ボーナス。
+export const DEFAULT_LOGIN_BONUS = {
+  baseCoins: 5,
+  perDayBonus: 2,
+  capDays: 14,
+  bonusChanceBase: 0.15,
+  bonusChancePerDay: 0.03,
+  bonusChanceMax: 0.6,
+  bonusCoins: 20,
+  milestones: [7, 14, 30, 60, 100],
+  milestoneBonusCoins: 50,
+};
+
+export const DEFAULT_LOGIN_STATE = {
+  streak: 0,
+  longestStreak: 0,
+  lastClaimDate: null,
+  totalClaims: 0,
+};
+
 // シューティングの記録と永続強化。
 export const DEFAULT_SHOOTER_STATE = {
   upgrades: { power: 0, rapid: 0, life: 0, escort: 0 },
@@ -155,6 +177,7 @@ export const DEFAULT_SHOOTER_STATE = {
 export const DEFAULT_CONFIG = {
   shooter: DEFAULT_SHOOTER,
   pet: DEFAULT_PET,
+  loginBonus: DEFAULT_LOGIN_BONUS,
   iceCreamStreak: 10, // このタスクが何連続に達するごとにアイスクリームバッジ1個
   levels: [
     { level: 1, minXp: 0, name: '駆け出し' },
