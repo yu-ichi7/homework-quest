@@ -143,8 +143,8 @@ function handleStart() {
     elapsed: 0,               // ループが動いている間だけ進む時間（ms）
     player: { x: canvas.width / 2, y: canvas.height - PLAYER_BOTTOM },
     ramCharges: res.ramCount, // 体当たりアイテムの残数
-    escort: null,
-    nextEscortFireAt: 0,
+    escorts: [],              // 護衛機（最大3体）の現在位置
+    nextEscortFireAt: [0, 0, 0],
     bullets: [],
     enemies: [],
     ebullets: [],
@@ -305,20 +305,23 @@ function update(dt) {
   }
   run.bullets = run.bullets.filter((b) => b.y + b.h > 0);
 
-  // 護衛機（買っていれば）。自機の周りをくるくる回りながら、自動で弾を撃つ。
+  // 護衛機（買っていれば最大3体）。自機の周りを等間隔でくるくる回りながら、自動で弾を撃つ。
   if (s.escortLevel > 0) {
-    const angle = now / 500;
+    const angleBase = now / 500;
     const radius = 28;
-    run.escort = {
-      x: run.player.x + Math.cos(angle) * radius,
-      y: run.player.y + Math.sin(angle) * radius * 0.6,
-    };
-    if (now >= run.nextEscortFireAt) {
-      run.nextEscortFireAt = now + 500;
-      run.bullets.push({ x: run.escort.x - 2, y: run.escort.y - 8, w: 5, h: 8, power: 1 });
+    run.escorts = [];
+    for (let i = 0; i < s.escortLevel; i += 1) {
+      const angle = angleBase + (i * (Math.PI * 2)) / 3; // 3体分の位置を120度ずつ固定で割り当てる
+      const ex = run.player.x + Math.cos(angle) * radius;
+      const ey = run.player.y + Math.sin(angle) * radius * 0.6;
+      run.escorts.push({ x: ex, y: ey });
+      if (now >= run.nextEscortFireAt[i]) {
+        run.nextEscortFireAt[i] = now + 500;
+        run.bullets.push({ x: ex - 2, y: ey - 8, w: 5, h: 8, power: 1 });
+      }
     }
   } else {
-    run.escort = null;
+    run.escorts = [];
   }
 
   // ザコの出現（ボス戦中は出さない）。種類はステージの enemyMix から抽選。
@@ -635,8 +638,8 @@ function draw() {
   }
 
   // 護衛機。
-  if (run.escort) {
-    drawCells(ctx, shooterSpriteToCells('escort'), run.escort.x, run.escort.y, 2);
+  for (const escort of run.escorts) {
+    drawCells(ctx, shooterSpriteToCells('escort'), escort.x, escort.y, 2);
   }
 
   // アイテムを取ったときのひとこと。

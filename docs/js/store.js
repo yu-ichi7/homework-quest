@@ -83,8 +83,9 @@ function ensureShape(data) {
       data.config.shooter.ramItem = DEFAULT_CONFIG.shooter.ramItem;
       changed = true;
     }
-    // 護衛機の永続強化を後付け。
-    if (!data.config.shooter.upgrades.escort) {
+    // 護衛機の永続強化を後付け／最大3体に拡張（旧定義は1体どまりだった）。
+    if (!data.config.shooter.upgrades.escort
+      || data.config.shooter.upgrades.escort.costs.length < DEFAULT_CONFIG.shooter.upgrades.escort.costs.length) {
       data.config.shooter.upgrades.escort = DEFAULT_CONFIG.shooter.upgrades.escort;
       changed = true;
     }
