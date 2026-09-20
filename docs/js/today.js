@@ -1,6 +1,6 @@
 import {
   getChildren, getConfig, getToday, addCompletion, removeCompletion,
-  getLoginBonusView, claimLoginBonus,
+  getLoginBonusView, claimLoginBonus, moveTask,
 } from './store.js';
 import { levelProgress } from './lib/levels.js';
 import { flameTier } from './lib/streak.js';
@@ -27,11 +27,14 @@ function init() {
 function renderLoginBonus() {
   const view = getLoginBonusView();
   document.getElementById('login-streak').textContent = `🔥${view.streak}日目`;
+  const panel = document.getElementById('login-panel');
   const btn = document.getElementById('login-claim-btn');
   const msg = document.getElementById('login-msg');
   btn.hidden = !view.claimable;
+  panel.classList.toggle('claimable', view.claimable);
+  msg.classList.toggle('claimable', view.claimable);
   if (view.claimable) {
-    msg.textContent = 'タップして受け取ろう！';
+    msg.textContent = '🎁 タップして受け取ろう！';
   } else {
     msg.textContent = '今日はもう受け取ったよ。また明日！';
   }
@@ -106,9 +109,9 @@ function refresh() {
   }
   const doneCount = items.filter((i) => i.done).length;
   document.getElementById('today-title').textContent = `今日のタスク（${doneCount}/${items.length}）`;
-  for (const item of items) {
-    list.appendChild(taskCard(item));
-  }
+  items.forEach((item, i) => {
+    list.appendChild(taskCard(item, i === 0, i === items.length - 1));
+  });
 }
 
 // サブ情報はチップ1行に収める（チェックしても行数が増えないように）。
@@ -121,7 +124,7 @@ function subHtml(item) {
   return `<div class="t-sub">${chips.join('')}</div>`;
 }
 
-function taskCard(item) {
+function taskCard(item, isFirst, isLast) {
   const card = document.createElement('div');
   card.className = 'task-card' + (item.done ? ' done' : '');
 
@@ -129,6 +132,10 @@ function taskCard(item) {
   const checkInner = item.doneCount > 0 ? `${item.doneCount}` : '';
 
   card.innerHTML = `
+    <div class="t-reorder">
+      <button class="t-move t-move-up" title="上へ動かす"${isFirst ? ' disabled' : ''}>▲</button>
+      <button class="t-move t-move-down" title="下へ動かす"${isLast ? ' disabled' : ''}>▼</button>
+    </div>
     <div class="t-icon" title="履歴を見る">${item.icon || '⭐'}</div>
     <div class="t-body">
       <div class="t-title">${item.title}</div>
@@ -146,8 +153,20 @@ function taskCard(item) {
   if (undoBtn) {
     undoBtn.onclick = (e) => { e.stopPropagation(); undoOne(item); };
   }
+  card.querySelector('.t-move-up').onclick = (e) => { e.stopPropagation(); reorder(item, -1); };
+  card.querySelector('.t-move-down').onclick = (e) => { e.stopPropagation(); reorder(item, 1); };
   card.onclick = () => tapTask(item);
   return card;
+}
+
+// タスクの表示順を1つ上/下へ動かす（direction: -1 = 上, +1 = 下）。
+function reorder(item, direction) {
+  try {
+    moveTask(item.id, direction, state.selectedId);
+    refresh();
+  } catch (err) {
+    console.error(err);
+  }
 }
 
 // カードをタップするたびに1回ぶん記録する（何回でも）。

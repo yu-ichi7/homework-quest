@@ -270,6 +270,23 @@ export function updateTask(id, body) {
   return task;
 }
 
+// 「今日」の表示順で、タスクを1つ上/下（direction: -1 / +1）へ動かす。
+// 曜日違いで今日は表示されないタスクを飛び越して、見えているタスク同士だけを入れ替える。
+export function moveTask(id, direction, childId, dateStr = todayStr()) {
+  const data = load();
+  const visible = expandForDay(data.tasks, childId, dateStr);
+  const pos = visible.findIndex((t) => t.id === id);
+  if (pos < 0) return { ok: false, reason: 'not-visible' };
+  const swapPos = pos + direction;
+  if (swapPos < 0 || swapPos >= visible.length) return { ok: false, reason: 'edge' };
+  const otherId = visible[swapPos].id;
+  const idxA = data.tasks.findIndex((t) => t.id === id);
+  const idxB = data.tasks.findIndex((t) => t.id === otherId);
+  [data.tasks[idxA], data.tasks[idxB]] = [data.tasks[idxB], data.tasks[idxA]];
+  save(data);
+  return { ok: true };
+}
+
 // タスク履歴ページ用。対象タスクと、日別の達成回数マップ・炎・累計・目標をまとめて返す。
 export function getTaskHistory(taskId, today = todayStr()) {
   const data = load();

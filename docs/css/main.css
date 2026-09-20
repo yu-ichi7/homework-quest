@@ -69,26 +69,47 @@ body {
 }
 
 /* デイリーボーナス */
-.login-bonus { text-align: center; }
+.login-bonus {
+  text-align: center; border: 3px solid var(--line); transition: border-color 0.2s, background 0.2s;
+}
+.login-bonus.claimable {
+  border-color: #f59e0b; background: linear-gradient(180deg, #fffbeb, var(--card) 70%);
+}
 .login-head { display: flex; justify-content: space-between; align-items: center; margin-bottom: 8px; }
 .login-title { font-weight: 800; font-size: 15px; }
 .login-streak { font-weight: 800; font-size: 13px; color: var(--warn); }
+#login-msg { font-weight: 700; }
+#login-msg.claimable { color: #b45309; }
 .gift-box {
-  border: none; background: var(--accent-soft); border-radius: 16px;
-  width: 72px; height: 72px; font-size: 34px; cursor: pointer; margin: 4px auto;
+  border: none; border-radius: 20px; color: #fff;
+  background: linear-gradient(145deg, #fcd34d, #f59e0b);
+  box-shadow: 0 4px 14px rgba(245, 158, 11, 0.5);
+  width: 80px; height: 80px; font-size: 38px; cursor: pointer; margin: 6px auto;
   display: block; transition: transform 0.08s;
+  animation: gift-pulse 1.6s ease-in-out infinite;
 }
-.gift-box:active { transform: scale(0.92); }
-.gift-box:disabled { opacity: 0.5; cursor: default; }
-.gift-box.shaking { animation: gift-shake 0.55s ease; pointer-events: none; }
+.gift-box:active { transform: scale(0.9); }
+.gift-box:disabled {
+  opacity: 0.4; cursor: default; background: var(--bg); box-shadow: none; animation: none;
+}
+.gift-box.shaking { animation: gift-shake 0.65s cubic-bezier(.36, .07, .19, .97); pointer-events: none; }
 .gift-box[hidden] { display: none; }
+@keyframes gift-pulse {
+  0%, 100% { box-shadow: 0 4px 14px rgba(245, 158, 11, 0.5); transform: scale(1); }
+  50% { box-shadow: 0 6px 26px rgba(245, 158, 11, 0.85); transform: scale(1.06); }
+}
 @keyframes gift-shake {
-  0%, 100% { transform: rotate(0) scale(1); }
-  15% { transform: rotate(-10deg) scale(1.05); }
-  30% { transform: rotate(10deg) scale(1.05); }
-  45% { transform: rotate(-8deg) scale(1.1); }
-  60% { transform: rotate(8deg) scale(1.1); }
-  80% { transform: rotate(0) scale(1.15); }
+  0% { transform: rotate(0) scale(1); }
+  10% { transform: rotate(-18deg) scale(1.15); }
+  20% { transform: rotate(16deg) scale(1.2); }
+  30% { transform: rotate(-20deg) scale(1.25); }
+  40% { transform: rotate(18deg) scale(1.3); }
+  50% { transform: rotate(-14deg) scale(1.35); }
+  60% { transform: rotate(12deg) scale(1.3); }
+  70% { transform: rotate(-8deg) scale(1.2); }
+  80% { transform: rotate(6deg) scale(1.15); }
+  90% { transform: rotate(-3deg) scale(1.05); }
+  100% { transform: rotate(0) scale(1); }
 }
 
 /* 子ども切り替えタブ */
@@ -146,6 +167,16 @@ body {
   transition: transform 0.08s, background 0.2s, border-color 0.2s;
 }
 .task-card:active { transform: scale(0.98); }
+/* 上下ボタン（今日の表示順を入れ替える） */
+.task-card .t-reorder { display: flex; flex-direction: column; gap: 2px; flex: none; }
+.task-card .t-move {
+  border: none; background: var(--bg); color: var(--muted);
+  width: 22px; height: 17px; border-radius: 6px; cursor: pointer;
+  font-size: 9px; line-height: 1; padding: 0;
+  display: flex; align-items: center; justify-content: center;
+}
+.task-card .t-move:active { transform: scale(0.85); background: var(--accent-soft); color: var(--accent); }
+.task-card .t-move:disabled { opacity: 0.25; cursor: default; }
 .task-card .t-icon {
   font-size: 26px; width: 42px; height: 42px; flex: none;
   display: flex; align-items: center; justify-content: center;
