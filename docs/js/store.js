@@ -4,8 +4,9 @@
 
 import {
   DEFAULT_CONFIG, DEFAULT_CHILDREN, DEFAULT_TASKS, DEFAULT_GAME_STATE,
-  DEFAULT_SHOOTER_STATE, DEFAULT_LOGIN_STATE,
+  DEFAULT_SHOOTER_STATE, DEFAULT_LOGIN_STATE, DEFAULT_RHYTHM_STATE,
 } from './lib/defaults.js';
+import { isSongUnlocked, isSongCleared } from './lib/rhythm.js';
 import { canClaimToday, nextLoginStreak, computeLoginReward } from './lib/login.js';
 import { recomputeChild } from './lib/progress.js';
 import { expandForDay, withCompletionState } from './lib/taskExpand.js';
@@ -43,6 +44,7 @@ function seed() {
       ...DEFAULT_SHOOTER_STATE,
       upgrades: { ...DEFAULT_SHOOTER_STATE.upgrades },
     },
+    rhythm: { ...DEFAULT_RHYTHM_STATE, best: {} },
     pet: null,
     petAlbum: [],
     iceCream: { earned: 0, used: 0 },
@@ -147,6 +149,16 @@ function ensureShape(data) {
   // デイリーボーナス。
   if (!data.config.loginBonus) { data.config.loginBonus = DEFAULT_CONFIG.loginBonus; changed = true; }
   if (!data.login || typeof data.login !== 'object') { data.login = { ...DEFAULT_LOGIN_STATE }; changed = true; }
+
+  // リズムゲーム。
+  if (!data.config.rhythm) { data.config.rhythm = DEFAULT_CONFIG.rhythm; changed = true; }
+  if (!data.rhythm || typeof data.rhythm !== 'object') {
+    data.rhythm = { ...DEFAULT_RHYTHM_STATE, best: {} };
+    changed = true;
+  } else if (!data.rhythm.best || typeof data.rhythm.best !== 'object') {
+    data.rhythm.best = {};
+    changed = true;
+  }
 
   if (data.version !== DATA_VERSION) { data.version = DATA_VERSION; changed = true; }
   return { data, changed };
@@ -595,6 +607,72 @@ export function graduatePet() {
   data.pet = null;
   save(data);
   return { album: data.petAlbum };
+}
+
+// ---- リズムゲーム ----
+
+export function getRhythmView() {
+  const data = load();
+  const cfg = data.config.rhythm;
+  const s = data.rhythm;
+  const songs = cfg.songs.map((song, i) => ({
+    index: i,
+    id: song.id,
+    name: song.name,
+    bpm: song.bpm,
+    fullScore: song.clearScore,
+    best: s.best[song.id]?.score || 0,
+    fullCombo: Boolean(s.best[song.id]?.fullCombo),
+    locked: !isSongUnlocked(i, s.cleared || 0),
+    cleared: i < (s.cleared || 0),
+  }));
+  return {
+    balance: balance(data.game),
+    playCost: cfg.playCost,
+    plays: s.plays || 0,
+    cleared: s.cleared || 0,
+    songs,
+    config: cfg,
+  };
+}
+
+// コインを払って演奏を始める。
+export function startRhythmRun(songIndex = 0) {
+  const data = load();
+  const cfg = data.config.rhythm;
+  const song = cfg.songs[songIndex];
+  if (!song) return { ok: false, reason: 'no-song' };
+  if (!isSongUnlocked(songIndex, data.rhythm.cleared || 0)) return { ok: false, reason: 'locked' };
+  const cost = cfg.playCost;
+  if (balance(data.game) < cost) return { ok: false, reason: 'not-enough', cost };
+  data.game.coinsSpent = (data.game.coinsSpent || 0) + cost;
+  save(data);
+  return { ok: true, cost, songIndex, song, config: cfg };
+}
+
+// 演奏が終わったとき。最高得点と、どこまでクリアしたか（曲の解放）を保存する。
+export function finishRhythmRun({ songIndex = 0, score = 0, fullCombo = false } = {}) {
+  const data = load();
+  const cfg = data.config.rhythm;
+  const song = cfg.songs[songIndex];
+  const s = data.rhythm;
+  s.plays = (s.plays || 0) + 1;
+
+  const prev = s.best[song.id]?.score || 0;
+  const isNewRecord = score > prev;
+  if (isNewRecord) s.best[song.id] = { score, fullCombo };
+  else if (fullCombo && s.best[song.id]) s.best[song.id].fullCombo = true;
+
+  const cleared = isSongCleared(song, score, cfg);
+  const unlockedNew = cleared && (songIndex + 1) > (s.cleared || 0);
+  if (unlockedNew) s.cleared = songIndex + 1;
+
+  save(data);
+  return {
+    isNewRecord, cleared, unlockedNew,
+    best: s.best[song.id]?.score || 0,
+    plays: s.plays,
+  };
 }
 
 // ---- デイリーボーナス ----

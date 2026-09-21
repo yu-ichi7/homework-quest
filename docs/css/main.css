@@ -482,18 +482,32 @@ body {
 
 #shop-list .task-row .sprite-icon { margin-right: 2px; }
 
-/* ゲームの入口メニュー（シューティング／ペット。タップして中に入る） */
-.game-menu { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; margin-bottom: 16px; }
+/* ゲームの入口メニュー（シューティング／リズム／ペット。タップして中に入る） */
+.game-menu {
+  display: grid; grid-template-columns: repeat(auto-fit, minmax(84px, 1fr));
+  gap: 10px; margin-bottom: 16px;
+}
 .game-menu[hidden] { display: none; }
 .menu-card {
   border: 3px solid var(--line); background: var(--card);
-  border-radius: var(--radius); padding: 28px 12px; font-family: inherit;
+  border-radius: var(--radius); padding: 20px 6px; font-family: inherit;
   cursor: pointer; color: var(--ink); transition: transform 0.08s;
-  display: flex; flex-direction: column; align-items: center; gap: 8px;
+  display: flex; flex-direction: column; align-items: center; gap: 6px;
 }
 .menu-card:active { transform: scale(0.96); }
-.menu-card-icon { font-size: 40px; }
-.menu-card-label { font-size: 16px; font-weight: 800; }
+.menu-card-icon { font-size: 34px; }
+.menu-card-label { font-size: 13px; font-weight: 800; }
+
+/* リズムゲーム */
+#rhythm-canvas {
+  width: 100%; height: auto; max-height: 72vh;
+  border-radius: 8px; display: block; margin: 0 auto;
+  touch-action: none; background: #0e1022;
+}
+.shooter-hud #rhythm-song-name { color: #9aa4b2; font-size: 12px; }
+.shooter-hud #rhythm-combo { color: var(--warn); }
+.don-label { color: #dc2626; }
+.ka-label { color: #2563eb; }
 
 .back-to-menu {
   border: none; background: none; color: var(--accent); font-weight: 700;

@@ -27,10 +27,36 @@
         <span class="menu-card-icon">🚀</span>
         <span class="menu-card-label">シューティング</span>
       </button>
+      <button class="menu-card" data-tab="rhythm">
+        <span class="menu-card-icon">🎵</span>
+        <span class="menu-card-label">リズム</span>
+      </button>
       <button class="menu-card" data-tab="pet">
         <span class="menu-card-icon">🐾</span>
         <span class="menu-card-label">ペット</span>
       </button>
+    </div>
+
+    <div id="tab-rhythm" class="game-tab" hidden>
+      <button class="back-to-menu" data-back>← ゲームメニュー</button>
+      <section class="panel">
+        <div class="coin-row">
+          <div class="coin-badge"><span class="emoji">🪙</span><span id="rhythm-coin">-</span></div>
+          <div class="area-name">🎵 <span id="rhythm-plays">0</span>回 演奏</div>
+        </div>
+      </section>
+
+      <section class="panel">
+        <h2>曲を選ぶ</h2>
+        <div class="stage-list" id="song-list"></div>
+        <button class="btn" id="rhythm-start-btn" style="width:100%; margin-top:12px">
+          演奏する（🪙 <span id="rhythm-cost">20</span>）
+        </button>
+        <p class="play-hint">音符が流れてきたら、輪に重なった瞬間にタップ。<br>
+          <b class="don-label">赤＝画面の左半分</b>／<b class="ka-label">青＝右半分</b>をたたく。<br>
+          ミスなく全部たたくと満点！</p>
+        <p id="rhythm-msg" class="level-sub"></p>
+      </section>
     </div>
 
     <div id="tab-shooter" class="game-tab" hidden>
@@ -141,6 +167,21 @@
     </div>
   </div>
 
+  <div class="game-overlay" id="rhythm-overlay" hidden>
+    <div class="overlay-inner">
+      <div class="shooter-hud">
+        <div>得点 <span id="rhythm-score">0</span></div>
+        <div id="rhythm-song-name">-</div>
+        <div id="rhythm-combo">0 コンボ</div>
+      </div>
+      <canvas id="rhythm-canvas" width="320" height="460"></canvas>
+      <div class="overlay-foot">
+        <span class="overlay-hint">左半分＝ドン（赤）／右半分＝カッ（青）</span>
+        <button class="btn secondary small" id="rhythm-quit">中止</button>
+      </div>
+    </div>
+  </div>
+
   <div class="modal-back" id="modal" hidden>
     <div class="modal">
       <div class="big-emoji" id="modal-emoji">🎉</div>
@@ -151,6 +192,7 @@
   </div>
 
   <script type="module" src="./js/shooter.js"></script>
+  <script type="module" src="./js/rhythm.js"></script>
   <script type="module" src="./js/pet.js"></script>
   <script type="module" src="./js/game-tabs.js"></script>
   <script>

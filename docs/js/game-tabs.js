@@ -6,6 +6,7 @@
 function activate(tab) {
   document.getElementById('game-menu').hidden = tab !== 'menu';
   document.getElementById('tab-shooter').hidden = tab !== 'shooter';
+  document.getElementById('tab-rhythm').hidden = tab !== 'rhythm';
   document.getElementById('tab-pet').hidden = tab !== 'pet';
   document.dispatchEvent(new CustomEvent('game-tab-changed', { detail: { tab } }));
 }
