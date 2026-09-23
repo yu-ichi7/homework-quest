@@ -44,8 +44,16 @@
       <div class="badges" id="badges"></div>
     </section>
 
-    <section class="panel">
-      <h2 id="today-title">今日のタスク</h2>
+    <section class="panel" id="task-panel">
+      <div class="day-nav">
+        <button class="day-arrow" id="day-prev" title="前の日を見る">◀</button>
+        <h2 id="today-title">今日のタスク</h2>
+        <button class="day-arrow" id="day-next" title="次の日を見る">▶</button>
+      </div>
+      <div class="past-banner" id="past-banner" hidden>
+        <span id="past-banner-text">やった分をあとからチェックできます</span>
+        <button class="btn small" id="back-today">今日に戻る</button>
+      </div>
       <div class="task-list" id="task-list"></div>
     </section>
   </main>

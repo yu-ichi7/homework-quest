@@ -1,14 +1,19 @@
 import {
   getChildren, getConfig, getToday, addCompletion, removeCompletion,
-  getLoginBonusView, claimLoginBonus, moveTask,
+  getLoginBonusView, claimLoginBonus, moveTask, WEEKDAY_JP,
 } from './store.js';
 import { levelProgress } from './lib/levels.js';
 import { flameTier } from './lib/streak.js';
+import { todayStr, addDays, dayOfWeek } from './lib/dates.js';
+
+// チェックし忘れをあとから直せるように、何日前まで遡れるか。
+const MAX_BACK_DAYS = 14;
 
 const state = {
   children: [],
   config: null,
   selectedId: null,
+  viewDate: todayStr(),  // いま見ている日（既定は今日）
 };
 
 function init() {
@@ -18,8 +23,30 @@ function init() {
   state.selectedId = state.children[0]?.id;
   renderOwner();
   document.getElementById('login-claim-btn').onclick = handleClaimLoginBonus;
+  document.getElementById('day-prev').onclick = () => shiftDay(-1);
+  document.getElementById('day-next').onclick = () => shiftDay(1);
+  document.getElementById('back-today').onclick = () => { state.viewDate = todayStr(); refresh(); };
   renderLoginBonus();
   refresh();
+}
+
+// ---- 日付の移動（チェックし忘れをあとから直すため） ----
+
+function shiftDay(delta) {
+  const next = addDays(state.viewDate, delta);
+  if (next > todayStr()) return;                       // 未来は見られない
+  if (next < addDays(todayStr(), -MAX_BACK_DAYS)) return; // 遡りすぎも止める
+  state.viewDate = next;
+  refresh();
+}
+
+function isToday() {
+  return state.viewDate === todayStr();
+}
+
+function formatDayLabel(dateStr) {
+  const [, m, d] = dateStr.split('-').map(Number);
+  return `${m}月${d}日（${WEEKDAY_JP[dayOfWeek(dateStr)]}）`;
 }
 
 // ---- デイリーボーナス ----
@@ -100,24 +127,46 @@ function renderLevel() {
 
 function refresh() {
   renderLevel();
-  const { items } = getToday(state.selectedId);
+  renderDayNav();
+  const { items } = getToday(state.selectedId, state.viewDate);
   const list = document.getElementById('task-list');
   list.innerHTML = '';
+
+  const label = isToday() ? '今日のタスク' : `${formatDayLabel(state.viewDate)}のタスク`;
   if (items.length === 0) {
-    list.innerHTML = '<div class="empty">今日のタスクはまだありません。<br>「設定」から追加できます。</div>';
+    document.getElementById('today-title').textContent = label;
+    list.innerHTML = isToday()
+      ? '<div class="empty">今日のタスクはまだありません。<br>「設定」から追加できます。</div>'
+      : '<div class="empty">この日の予定のタスクはありません。</div>';
     return;
   }
   const doneCount = items.filter((i) => i.done).length;
-  document.getElementById('today-title').textContent = `今日のタスク（${doneCount}/${items.length}）`;
+  document.getElementById('today-title').textContent = `${label}（${doneCount}/${items.length}）`;
   items.forEach((item, i) => {
     list.appendChild(taskCard(item, i === 0, i === items.length - 1));
   });
 }
 
+// 日付の見出し・前後ボタン・「過去を見ています」の帯を更新する。
+function renderDayNav() {
+  const past = !isToday();
+  document.getElementById('task-panel').classList.toggle('viewing-past', past);
+  document.getElementById('day-next').disabled = isToday();
+  document.getElementById('day-prev').disabled = state.viewDate <= addDays(todayStr(), -MAX_BACK_DAYS);
+
+  const banner = document.getElementById('past-banner');
+  banner.hidden = !past;
+  if (past) {
+    document.getElementById('past-banner-text').textContent = `${formatDayLabel(state.viewDate)}にやった分を、ここでチェックできます`;
+  }
+}
+
 // サブ情報はチップ1行に収める（チェックしても行数が増えないように）。
 function subHtml(item) {
   const chips = [`<span class="t-pt">+${item.points}pt</span>`];
-  if (item.doneCount > 0) chips.push(`<span class="t-today-count">今日${item.doneCount}回</span>`);
+  if (item.doneCount > 0) {
+    chips.push(`<span class="t-today-count">${isToday() ? '今日' : 'この日'}${item.doneCount}回</span>`);
+  }
   const tier = flameTier(item.streak);
   if (tier > 0) chips.push(`<span class="flame flame-${tier}">🔥${item.streak}日</span>`);
   if (item.total > 0) chips.push(`<span class="t-total">計${item.total}回</span>`);
@@ -162,7 +211,7 @@ function taskCard(item, isFirst, isLast) {
 // タスクの表示順を1つ上/下へ動かす（direction: -1 = 上, +1 = 下）。
 function reorder(item, direction) {
   try {
-    moveTask(item.id, direction, state.selectedId);
+    moveTask(item.id, direction, state.selectedId, state.viewDate);
     refresh();
   } catch (err) {
     console.error(err);
@@ -170,9 +219,14 @@ function reorder(item, direction) {
 }
 
 // カードをタップするたびに1回ぶん記録する（何回でも）。
+// 過去の日を見ているときは、その日の記録として追加される。
 function tapTask(item) {
   try {
-    const res = addCompletion({ taskId: item.id, childId: state.selectedId });
+    const res = addCompletion({
+      taskId: item.id,
+      childId: state.selectedId,
+      date: state.viewDate,
+    });
     updateChildInState(res.child);
     refresh();
     celebrate(res);

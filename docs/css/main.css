@@ -160,6 +160,25 @@ body {
 
 /* タスクカード */
 .task-list { display: flex; flex-direction: column; gap: 8px; }
+/* 日付の切り替え（チェックし忘れをあとから直す） */
+.day-nav { display: flex; align-items: center; gap: 8px; margin-bottom: 12px; }
+.day-nav h2 { flex: 1; margin: 0; text-align: center; font-size: 15px; }
+.day-arrow {
+  border: 2px solid var(--line); background: var(--card); color: var(--accent);
+  width: 34px; height: 34px; border-radius: 10px; flex: none;
+  font-size: 12px; font-family: inherit; cursor: pointer; padding: 0;
+}
+.day-arrow:active { transform: scale(0.9); background: var(--accent-soft); }
+.day-arrow:disabled { opacity: 0.25; cursor: default; }
+#task-panel.viewing-past { border: 3px solid var(--warn); }
+.past-banner {
+  display: flex; align-items: center; justify-content: space-between; gap: 10px;
+  background: #fffbeb; border: 2px solid var(--warn); border-radius: 12px;
+  padding: 8px 10px; margin-bottom: 12px; font-size: 12px; font-weight: 700; color: #b45309;
+}
+.past-banner[hidden] { display: none; }
+.past-banner .btn { flex: none; }
+
 .task-card {
   display: flex; align-items: center; gap: 10px;
   border: 2px solid var(--line); border-radius: var(--radius);
