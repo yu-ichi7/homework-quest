@@ -66,13 +66,19 @@ function ensureShape(data) {
     }
     // 得点方式の作り直し・敵の種類追加・背景/ボスのバリエーション追加のたびに
     // ステージ定義を拡張してきたので、bgTheme が無い＝旧い定義は丸ごと差し替える。
-    if (!data.config.shooter.stages?.[0]?.bgTheme) {
+    // 中ボス・ボスの攻撃パターンを入れたリニューアルで midboss が加わった。
+    if (!data.config.shooter.stages?.[0]?.bgTheme || !data.config.shooter.stages?.[0]?.midboss) {
       data.config.shooter.stages = DEFAULT_CONFIG.shooter.stages;
       changed = true;
     }
-    // 敵の種類（ふつう/かたい/すばやい/狙撃）の定義。
-    if (!data.config.shooter.enemyTypes) {
+    // 敵の種類。リニューアルで6種類増え、ドット絵指定（sprite）から大きさ指定（w/h）に変わった。
+    if (!data.config.shooter.enemyTypes?.charger) {
       data.config.shooter.enemyTypes = DEFAULT_CONFIG.shooter.enemyTypes;
+      changed = true;
+    }
+    // アイテム。リニューアルで武器アイテムや特殊効果が加わった（旧「威力アップ」は廃止）。
+    if (!data.config.shooter.items?.types?.some((t) => t.id === 'spread')) {
+      data.config.shooter.items = DEFAULT_CONFIG.shooter.items;
       changed = true;
     }
     // 1プレイの旧価格（50コイン）は新価格へ。

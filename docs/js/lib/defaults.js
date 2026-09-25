@@ -14,82 +14,128 @@ export const DEFAULT_SHOOTER = {
   invincibleMs: 1200,     // 被弾後の無敵時間
   enemyBulletSpeed: 150,  // 敵の弾の速さ（px/秒）の既定値（各ステージで上書きされる）
   // 敵の種類。ステージごとの enemyMix でどの種類がどれくらい出るか決まる。
+  // w/h: 当たり判定の大きさ(px)。見た目は shooterArt.js が種類ごとに描く。
   // dropChance: 倒したときにアイテムを落とす確率。zigzagAmp: 左右に揺れる幅(px)。
-  // aimedFireMs: この間隔で自機を狙って弾を撃つ（gunnerのみ）。
+  // aimedFireMs: この間隔で自機を狙って弾を撃つ。move: 動き方（省略時はまっすぐ落ちる）。
+  // noEscapeDamage: 画面の外へ抜けてもダメージにならない（通り過ぎるだけの敵）。
   enemyTypes: {
-    normal: { name: 'ふつう', hp: 1, speedMul: 1.0, sprite: 'enemyNormal', dropChance: 0.14 },
-    tough: { name: 'かたい', hp: 3, speedMul: 0.75, sprite: 'enemyTough', dropChance: 0.45 },
-    swift: { name: 'すばやい', hp: 1, speedMul: 1.55, sprite: 'enemySwift', zigzagAmp: 70, dropChance: 0.12 },
-    gunner: { name: '狙撃', hp: 2, speedMul: 0.85, sprite: 'enemyGunner', aimedFireMs: 2200, dropChance: 0.3 },
+    normal: { name: 'ふつう', hp: 1, speedMul: 1.0, w: 26, h: 22, dropChance: 0.14 },
+    tough: { name: 'かたい', hp: 3, speedMul: 0.75, w: 34, h: 26, dropChance: 0.45 },
+    swift: { name: 'すばやい', hp: 1, speedMul: 1.55, w: 22, h: 18, zigzagAmp: 70, dropChance: 0.12 },
+    gunner: { name: '狙撃', hp: 2, speedMul: 0.85, w: 26, h: 22, aimedFireMs: 2200, dropChance: 0.3 },
+    // いったん止まって狙いを定め、自機めがけて急降下する。
+    charger: {
+      name: '突撃', hp: 2, speedMul: 0.9, w: 26, h: 24, move: 'charge',
+      aimMs: 600, dashSpeed: 330, dropChance: 0.25, noEscapeDamage: true,
+    },
+    // 倒すと小さい子機2体に分かれる。
+    splitter: { name: '分裂', hp: 2, speedMul: 0.8, w: 28, h: 22, splitInto: 'mini', dropChance: 0.2 },
+    mini: { name: '子機', hp: 1, speedMul: 1.3, w: 16, h: 14, dropChance: 0.05, noEscapeDamage: true },
+    // 正面（まっすぐの弾）をはじく盾を持つ。斜めの弾・ホーミングは効く。はじくと盾がけずれる。
+    shielded: { name: '盾持ち', hp: 2, speedMul: 0.7, w: 30, h: 26, shieldHp: 6, dropChance: 0.35 },
+    // 5機が列になって蛇行してくる。全滅させるとアイテム確定。
+    formation: {
+      name: '編隊', hp: 1, speedMul: 1.0, w: 20, h: 16, move: 'formation',
+      groupSize: 5, dropChance: 0, noEscapeDamage: true,
+    },
+    // ゆっくり漂い、壊すと周りに弾をばらまく。
+    mine: { name: '機雷', hp: 3, speedMul: 0.45, w: 22, h: 22, burst: 8, dropChance: 0.2 },
   },
   // 5つのステージ。だんだん敵が速く・多く・よく撃つようになり、種類も増える。
   // duration: ボスが出るまでの時間(ms)。clearScore: ノーミスでクリアしたときの満点。
   // enemyMix: 出現する敵の種類と重み。enemyFireCount: 1回の攻撃で何体が同時に撃つか。
-  // bgTheme: ステージごとの背景の見た目。boss.sprite: ボスのドット絵。
+  // bgTheme: ステージごとの背景の見た目。
+  // midboss: ステージの途中（duration の midbossAt 割合の時点）に1体だけ出る中ボス。
+  // boss.pattern: ボスの攻撃パターン（shooter.js の BOSS_PATTERNS）。HPが半分を切ると怒りモード。
   stages: [
     {
       name: '緑の草原', bgTheme: 'meadow',
       enemySpeed: 85, spawnMs: 950,
       enemyFireMs: 2000, enemyFireCount: 1, enemyBulletSpeed: 165,
       enemyMix: [
-        { type: 'normal', weight: 8 },
+        { type: 'normal', weight: 7 },
         { type: 'tough', weight: 2 },
+        { type: 'formation', weight: 1 },
       ],
       duration: 72000, clearScore: 10000,
-      boss: { name: '緑の守護者', sprite: 'bossMeadow', hp: 160, fireMs: 900, speed: 90, ways: 3 },
+      midboss: { name: '森の番兵', hp: 40 },
+      boss: { name: '緑の守護者', pattern: 'leaves', hp: 160, fireMs: 900, speed: 90, ways: 5 },
     },
     {
       name: '雲の海', bgTheme: 'clouds',
       enemySpeed: 105, spawnMs: 800,
       enemyFireMs: 1600, enemyFireCount: 1, enemyBulletSpeed: 185,
       enemyMix: [
-        { type: 'normal', weight: 5 },
+        { type: 'normal', weight: 4 },
         { type: 'tough', weight: 2 },
-        { type: 'swift', weight: 3 },
+        { type: 'swift', weight: 2 },
+        { type: 'charger', weight: 1 },
+        { type: 'splitter', weight: 1 },
+        { type: 'formation', weight: 1 },
       ],
       duration: 84000, clearScore: 12000,
-      boss: { name: '雲の主', sprite: 'bossClouds', hp: 260, fireMs: 750, speed: 110, ways: 4 },
+      midboss: { name: '雲の番兵', hp: 60 },
+      boss: { name: '雲の主', pattern: 'thunder', hp: 260, fireMs: 1000, speed: 110, ways: 4 },
     },
     {
       name: '稲妻の谷', bgTheme: 'storm',
       enemySpeed: 125, spawnMs: 680,
       enemyFireMs: 1300, enemyFireCount: 2, enemyBulletSpeed: 205,
       enemyMix: [
-        { type: 'normal', weight: 4 },
+        { type: 'normal', weight: 3 },
         { type: 'tough', weight: 2 },
-        { type: 'swift', weight: 3 },
+        { type: 'swift', weight: 2 },
         { type: 'gunner', weight: 2 },
+        { type: 'charger', weight: 2 },
+        { type: 'splitter', weight: 1 },
+        { type: 'shielded', weight: 1 },
+        { type: 'formation', weight: 1 },
       ],
       duration: 96000, clearScore: 15000,
-      boss: { name: '雷竜', sprite: 'bossStorm', hp: 380, fireMs: 620, speed: 130, ways: 4 },
+      midboss: { name: '雷の番兵', hp: 90 },
+      boss: { name: '雷竜', pattern: 'zigzag', hp: 380, fireMs: 700, speed: 130, ways: 3 },
     },
     {
       name: '炎の火山', bgTheme: 'volcano',
       enemySpeed: 145, spawnMs: 560,
       enemyFireMs: 1050, enemyFireCount: 2, enemyBulletSpeed: 225,
       enemyMix: [
-        { type: 'normal', weight: 3 },
-        { type: 'tough', weight: 3 },
+        { type: 'normal', weight: 2 },
+        { type: 'tough', weight: 2 },
         { type: 'swift', weight: 2 },
-        { type: 'gunner', weight: 3 },
+        { type: 'gunner', weight: 2 },
+        { type: 'charger', weight: 2 },
+        { type: 'splitter', weight: 2 },
+        { type: 'shielded', weight: 2 },
+        { type: 'mine', weight: 1 },
+        { type: 'formation', weight: 1 },
       ],
       duration: 108000, clearScore: 18000,
-      boss: { name: '溶岩帝王', sprite: 'bossVolcano', hp: 520, fireMs: 520, speed: 150, ways: 5 },
+      midboss: { name: '炎の番兵', hp: 120 },
+      boss: { name: '溶岩帝王', pattern: 'lava', hp: 520, fireMs: 900, speed: 120, ways: 3 },
     },
     {
       name: '宇宙要塞', bgTheme: 'space',
       enemySpeed: 165, spawnMs: 460,
       enemyFireMs: 850, enemyFireCount: 3, enemyBulletSpeed: 245,
       enemyMix: [
-        { type: 'normal', weight: 2 },
-        { type: 'tough', weight: 3 },
+        { type: 'normal', weight: 1 },
+        { type: 'tough', weight: 2 },
         { type: 'swift', weight: 2 },
-        { type: 'gunner', weight: 4 },
+        { type: 'gunner', weight: 3 },
+        { type: 'charger', weight: 2 },
+        { type: 'splitter', weight: 2 },
+        { type: 'shielded', weight: 2 },
+        { type: 'mine', weight: 2 },
+        { type: 'formation', weight: 1 },
       ],
       duration: 120000, clearScore: 20000,
-      boss: { name: '要塞中枢', sprite: 'bossFortress', hp: 700, fireMs: 420, speed: 170, ways: 6 },
+      midboss: { name: '要塞の番兵', hp: 160 },
+      boss: { name: '要塞中枢', pattern: 'spiral', hp: 700, fireMs: 1500, speed: 60, ways: 2 },
     },
   ],
+  midbossAt: 0.45,   // ボス出現までの時間のこの割合の時点で中ボスが出る
+  midbossStayMs: 15000, // 倒せないまま、この時間がたつと中ボスは帰っていく
   // 得点の決まり方：ステージの満点 × 進み具合 −（被弾ごとの減点）。
   // 進み具合はボス出現までで半分、ボスの体力を削りきると満点になる。
   scoring: {
@@ -106,15 +152,27 @@ export const DEFAULT_SHOOTER = {
   // 出撃前に買う消耗アイテム。体当たりした敵をノーダメージで倒せる（1回で1つ消費）。
   ramItem: { cost: 10, max: 5 },
   fireIntervalMinMs: 90,  // 連射間隔の下限
-  // 敵を倒すと、たまに落とすパワーアップアイテム（そのプレイの間ずっと効く）。
+  // 敵を倒すと、たまに落とすアイテム（効果はそのプレイの間だけ）。
+  // weapon: 武器を持ち替える／同じ武器ならレベルアップ（最大 weaponMaxLevel）。
+  // effect: 取った瞬間に発動する特殊効果。durationMs はその効果の続く時間。
+  // label / icon と color は見た目（shooterArt.js が丸いバッジとして描く）。
   items: {
     dropChanceNormal: 0.14,  // 敵ごとの dropChance が無いときの既定値
     fallSpeed: 90,           // 落ちる速さ（px/秒）
     maxLives: 6,             // ライフの上限
+    weaponMaxLevel: 3,
+    bombBossDamageRatio: 0.08, // ボムがボス・中ボスに与えるダメージ（最大HPに対する割合）
     types: [
-      { id: 'power', name: '威力アップ', sprite: 'itemPower', weight: 3, power: 1 },
-      { id: 'rapid', name: '連射アップ', sprite: 'itemRapid', weight: 3, fireDelta: -60 },
-      { id: 'life', name: '体力回復', sprite: 'itemLife', weight: 2, lives: 1 },
+      { id: 'spread', name: '拡散ショット', weapon: 'spread', label: '拡', color: '#ef4444', weight: 2.2 },
+      { id: 'laser', name: 'レーザー', weapon: 'laser', label: '光', color: '#3b82f6', weight: 2.2 },
+      { id: 'homing', name: 'ホーミング', weapon: 'homing', label: '追', color: '#22c55e', weight: 2.2 },
+      { id: 'rapid', name: '連射アップ', icon: '⚡', color: '#f59e0b', weight: 2, fireDelta: -50 },
+      { id: 'life', name: '体力回復', icon: '❤️', color: '#fb7185', weight: 1.5, lives: 1 },
+      { id: 'shield', name: 'シールド', icon: '🛡️', color: '#38bdf8', weight: 1.5, effect: 'shield' },
+      { id: 'bomb', name: 'ボム', icon: '💣', color: '#a855f7', weight: 1, effect: 'bomb' },
+      { id: 'magnet', name: 'マグネット', icon: '🧲', color: '#f472b6', weight: 1, effect: 'magnet', durationMs: 10000 },
+      { id: 'slow', name: 'スロー', icon: '⏳', color: '#facc15', weight: 1, effect: 'slow', durationMs: 5000 },
+      { id: 'star', name: '無敵スター', icon: '⭐', color: '#fde047', weight: 0.6, effect: 'star', durationMs: 5000 },
     ],
   },
 };
