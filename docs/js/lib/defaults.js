@@ -14,6 +14,127 @@ export const DEFAULT_SHOOTER = {
   invincibleMs: 1200,     // 被弾後の無敵時間
   enemyBulletSpeed: 150,  // 敵の弾の速さ（px/秒）の既定値（各ステージで上書きされる）
   // 敵の種類。ステージごとの enemyMix でどの種類がどれくらい出るか決まる。
+  // dropChance: 倒したときにアイテムを落とす確率。zigzagAmp: 左右に揺れる幅(px)。
+  // aimedFireMs: この間隔で自機を狙って弾を撃つ（gunnerのみ）。
+  enemyTypes: {
+    normal: { name: 'ふつう', hp: 1, speedMul: 1.0, sprite: 'enemyNormal', dropChance: 0.14 },
+    tough: { name: 'かたい', hp: 3, speedMul: 0.75, sprite: 'enemyTough', dropChance: 0.45 },
+    swift: { name: 'すばやい', hp: 1, speedMul: 1.55, sprite: 'enemySwift', zigzagAmp: 70, dropChance: 0.12 },
+    gunner: { name: '狙撃', hp: 2, speedMul: 0.85, sprite: 'enemyGunner', aimedFireMs: 2200, dropChance: 0.3 },
+  },
+  // 5つのステージ。だんだん敵が速く・多く・よく撃つようになり、種類も増える。
+  // duration: ボスが出るまでの時間(ms)。clearScore: ノーミスでクリアしたときの満点。
+  // enemyMix: 出現する敵の種類と重み。enemyFireCount: 1回の攻撃で何体が同時に撃つか。
+  // bgTheme: ステージごとの背景の見た目。boss.sprite: ボスのドット絵。
+  stages: [
+    {
+      name: '緑の草原', bgTheme: 'meadow',
+      enemySpeed: 85, spawnMs: 950,
+      enemyFireMs: 2000, enemyFireCount: 1, enemyBulletSpeed: 165,
+      enemyMix: [
+        { type: 'normal', weight: 8 },
+        { type: 'tough', weight: 2 },
+      ],
+      duration: 72000, clearScore: 10000,
+      boss: { name: '緑の守護者', sprite: 'bossMeadow', hp: 160, fireMs: 900, speed: 90, ways: 3 },
+    },
+    {
+      name: '雲の海', bgTheme: 'clouds',
+      enemySpeed: 105, spawnMs: 800,
+      enemyFireMs: 1600, enemyFireCount: 1, enemyBulletSpeed: 185,
+      enemyMix: [
+        { type: 'normal', weight: 5 },
+        { type: 'tough', weight: 2 },
+        { type: 'swift', weight: 3 },
+      ],
+      duration: 84000, clearScore: 12000,
+      boss: { name: '雲の主', sprite: 'bossClouds', hp: 260, fireMs: 750, speed: 110, ways: 4 },
+    },
+    {
+      name: '稲妻の谷', bgTheme: 'storm',
+      enemySpeed: 125, spawnMs: 680,
+      enemyFireMs: 1300, enemyFireCount: 2, enemyBulletSpeed: 205,
+      enemyMix: [
+        { type: 'normal', weight: 4 },
+        { type: 'tough', weight: 2 },
+        { type: 'swift', weight: 3 },
+        { type: 'gunner', weight: 2 },
+      ],
+      duration: 96000, clearScore: 15000,
+      boss: { name: '雷竜', sprite: 'bossStorm', hp: 380, fireMs: 620, speed: 130, ways: 4 },
+    },
+    {
+      name: '炎の火山', bgTheme: 'volcano',
+      enemySpeed: 145, spawnMs: 560,
+      enemyFireMs: 1050, enemyFireCount: 2, enemyBulletSpeed: 225,
+      enemyMix: [
+        { type: 'normal', weight: 3 },
+        { type: 'tough', weight: 3 },
+        { type: 'swift', weight: 2 },
+        { type: 'gunner', weight: 3 },
+      ],
+      duration: 108000, clearScore: 18000,
+      boss: { name: '溶岩帝王', sprite: 'bossVolcano', hp: 520, fireMs: 520, speed: 150, ways: 5 },
+    },
+    {
+      name: '宇宙要塞', bgTheme: 'space',
+      enemySpeed: 165, spawnMs: 460,
+      enemyFireMs: 850, enemyFireCount: 3, enemyBulletSpeed: 245,
+      enemyMix: [
+        { type: 'normal', weight: 2 },
+        { type: 'tough', weight: 3 },
+        { type: 'swift', weight: 2 },
+        { type: 'gunner', weight: 4 },
+      ],
+      duration: 120000, clearScore: 20000,
+      boss: { name: '要塞中枢', sprite: 'bossFortress', hp: 700, fireMs: 420, speed: 170, ways: 6 },
+    },
+  ],
+  // 得点の決まり方：ステージの満点 × 進み具合 −（被弾ごとの減点）。
+  // 進み具合はボス出現までで半分、ボスの体力を削りきると満点になる。
+  scoring: {
+    damagePenaltyRatio: 0.08, // 1回被弾するごとに満点の8%を減点
+    wavePhaseRatio: 0.5,      // ボス出現までで稼げる割合
+  },
+  // 永続強化（買うとずっと残る）。レベルごとのコイン。
+  upgrades: {
+    power: { name: 'ショット強化', icon: '💥', desc: '弾の威力が上がる', costs: [40, 90, 180], perLevel: 1 },
+    rapid: { name: '連射速度', icon: '⚡', desc: '弾を速く撃てる', costs: [50, 110, 220], perLevel: -50 },
+    life: { name: 'ライフ増加', icon: '❤️', desc: 'ライフが1つ増える', costs: [60, 140, 260], perLevel: 1 },
+    escort: { name: '護衛機', icon: '🛰️', desc: '機体の周りを飛び、自動で弾を撃つ小さな護衛機が増える（最大3体）', costs: [500, 500, 500], perLevel: 1 },
+  },
+  // 出撃前に買う消耗アイテム。体当たりした敵をノーダメージで倒せる（1回で1つ消費）。
+  ramItem: { cost: 10, max: 5 },
+  fireIntervalMinMs: 90,  // 連射間隔の下限
+  // 敵を倒すと、たまに落とすパワーアップアイテム（そのプレイの間ずっと効く）。
+  items: {
+    dropChanceNormal: 0.14,  // 敵ごとの dropChance が無いときの既定値
+    fallSpeed: 90,           // 落ちる速さ（px/秒）
+    maxLives: 6,             // ライフの上限
+    types: [
+      { id: 'power', name: '威力アップ', sprite: 'itemPower', weight: 3, power: 1 },
+      { id: 'rapid', name: '連射アップ', sprite: 'itemRapid', weight: 3, fireDelta: -60 },
+      { id: 'life', name: '体力回復', sprite: 'itemLife', weight: 2, lives: 1 },
+    ],
+  },
+};
+
+// シューティングDX（リニューアル版）の既定パラメータ。元のシューティングとは別のゲームとして遊ぶ。
+// 武器の持ち替え・特殊アイテム・10種類の敵・中ボス・攻撃パターンの違うボスがある。
+// 見た目はドット絵ではなく shooterArt.js が図形で描く。
+// 永続強化（upgrades）は持たず、元のシューティングの強化をそのまま共通で使う。
+export const DEFAULT_SHOOTER_DX = {
+  playCost: 30,           // 1プレイのコイン
+  base: {
+    lives: 3,             // 初期ライフ
+    power: 1,             // 弾の威力
+    fireIntervalMs: 380,  // 連射間隔（小さいほど速い）
+    bulletSpeed: 380,     // 弾の速さ（px/秒）
+    playerSpeed: 200,     // 自機の移動速度（px/秒）
+  },
+  invincibleMs: 1200,     // 被弾後の無敵時間
+  enemyBulletSpeed: 150,  // 敵の弾の速さ（px/秒）の既定値（各ステージで上書きされる）
+  // 敵の種類。ステージごとの enemyMix でどの種類がどれくらい出るか決まる。
   // w/h: 当たり判定の大きさ(px)。見た目は shooterArt.js が種類ごとに描く。
   // dropChance: 倒したときにアイテムを落とす確率。zigzagAmp: 左右に揺れる幅(px)。
   // aimedFireMs: この間隔で自機を狙って弾を撃つ。move: 動き方（省略時はまっすぐ落ちる）。
@@ -46,7 +167,7 @@ export const DEFAULT_SHOOTER = {
   // enemyMix: 出現する敵の種類と重み。enemyFireCount: 1回の攻撃で何体が同時に撃つか。
   // bgTheme: ステージごとの背景の見た目。
   // midboss: ステージの途中（duration の midbossAt 割合の時点）に1体だけ出る中ボス。
-  // boss.pattern: ボスの攻撃パターン（shooter.js の BOSS_PATTERNS）。HPが半分を切ると怒りモード。
+  // boss.pattern: ボスの攻撃パターン（shooterDx.js の BOSS_PATTERNS）。HPが半分を切ると怒りモード。
   stages: [
     {
       name: '緑の草原', bgTheme: 'meadow',
@@ -142,13 +263,6 @@ export const DEFAULT_SHOOTER = {
     damagePenaltyRatio: 0.08, // 1回被弾するごとに満点の8%を減点
     wavePhaseRatio: 0.5,      // ボス出現までで稼げる割合
   },
-  // 永続強化（買うとずっと残る）。レベルごとのコイン。
-  upgrades: {
-    power: { name: 'ショット強化', icon: '💥', desc: '弾の威力が上がる', costs: [40, 90, 180], perLevel: 1 },
-    rapid: { name: '連射速度', icon: '⚡', desc: '弾を速く撃てる', costs: [50, 110, 220], perLevel: -50 },
-    life: { name: 'ライフ増加', icon: '❤️', desc: 'ライフが1つ増える', costs: [60, 140, 260], perLevel: 1 },
-    escort: { name: '護衛機', icon: '🛰️', desc: '機体の周りを飛び、自動で弾を撃つ小さな護衛機が増える（最大3体）', costs: [500, 500, 500], perLevel: 1 },
-  },
   // 出撃前に買う消耗アイテム。体当たりした敵をノーダメージで倒せる（1回で1つ消費）。
   ramItem: { cost: 10, max: 5 },
   fireIntervalMinMs: 90,  // 連射間隔の下限
@@ -230,6 +344,14 @@ export const DEFAULT_SHOOTER_STATE = {
   totalKills: 0,
   plays: 0,
   cleared: 0,   // クリア済みの最大ステージ番号（1始まり。0なら未クリア）
+};
+
+// シューティングDXの記録。永続強化は元のシューティング（DEFAULT_SHOOTER_STATE.upgrades）と共通。
+export const DEFAULT_SHOOTER_DX_STATE = {
+  highScore: 0,
+  totalKills: 0,
+  plays: 0,
+  cleared: 0,
 };
 
 // リズムゲーム。曲は音声ファイルではなく、Web Audio のオシレーターで
@@ -318,6 +440,7 @@ export const DEFAULT_RHYTHM_STATE = {
 
 export const DEFAULT_CONFIG = {
   shooter: DEFAULT_SHOOTER,
+  shooterDx: DEFAULT_SHOOTER_DX,
   rhythm: DEFAULT_RHYTHM,
   pet: DEFAULT_PET,
   loginBonus: DEFAULT_LOGIN_BONUS,

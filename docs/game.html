@@ -35,6 +35,11 @@
         <span class="menu-card-icon">🐾</span>
         <span class="menu-card-label">ペット</span>
       </button>
+      <!-- 3列の並びの2段目・左はし＝シューティングのすぐ下に来る -->
+      <button class="menu-card" data-tab="shooterdx">
+        <span class="menu-card-icon">🌠</span>
+        <span class="menu-card-label">シューティング<br>DX</span>
+      </button>
     </div>
 
     <div id="tab-rhythm" class="game-tab" hidden>
@@ -90,8 +95,7 @@
           出撃（🪙 <span id="total-cost">30</span>）
         </button>
         <p class="play-hint">画面を指でなぞって移動（前後にも動ける）・弾は自動。<br>
-          武器アイテム（<b style="color:#ef4444">拡</b>拡散・<b style="color:#3b82f6">光</b>レーザー・<b style="color:#22c55e">追</b>ホーミング）は同じ色を取るとLv3まで強くなる。<br>
-          🛡️シールド・💣ボム・🧲マグネット・⏳スロー・⭐無敵も出るよ。<br>
+          アイテムを取ると強くなる（💥威力 ⚡連射 ❤️体力）。<br>
           得点は進むほど増え、被弾すると減る。<b>ノーミスでボスを倒すと満点！</b></p>
         <p id="shooter-msg" class="level-sub"></p>
       </section>
@@ -99,6 +103,49 @@
       <section class="panel">
         <h2>永続強化</h2>
         <div id="upgrade-list"></div>
+      </section>
+    </div>
+
+    <div id="tab-shooterdx" class="game-tab" hidden>
+      <button class="back-to-menu" data-back>← ゲームメニュー</button>
+      <section class="panel">
+        <div class="coin-row">
+          <div class="coin-badge"><span class="emoji">🪙</span><span id="dx-coin">-</span></div>
+          <div class="area-name">🏆 最高得点 <span id="dx-highscore">0</span></div>
+        </div>
+        <p class="level-sub">
+          累計撃墜 <span id="dx-kills">0</span>機 ・ 出撃 <span id="dx-plays">0</span>回
+        </p>
+      </section>
+
+      <section class="panel">
+        <h2>ステージを選ぶ</h2>
+        <div class="stage-list" id="dx-stage-list"></div>
+
+        <div class="ram-picker">
+          <div class="ram-info">
+            <div class="name">💢 体当たり <span id="dx-ram-count">0</span>/<span id="dx-ram-max">5</span></div>
+            <div class="sub">体当たりした敵をノーダメージで倒せる（🪙<span id="dx-ram-cost">10</span>/個・出撃前に購入）</div>
+          </div>
+          <div class="stepper">
+            <button class="btn small secondary" id="dx-ram-minus" type="button">−</button>
+            <button class="btn small secondary" id="dx-ram-plus" type="button">＋</button>
+          </div>
+        </div>
+
+        <button class="btn" id="dx-start-btn" style="width:100%; margin-top:12px">
+          出撃（🪙 <span id="dx-total-cost">30</span>）
+        </button>
+        <p class="play-hint">画面を指でなぞって移動（前後にも動ける）・弾は自動。<br>
+          武器アイテム（<b style="color:#ef4444">拡</b>拡散・<b style="color:#3b82f6">光</b>レーザー・<b style="color:#22c55e">追</b>ホーミング）は同じ色を取るとLv3まで強くなる。<br>
+          🛡️シールド・💣ボム・🧲マグネット・⏳スロー・⭐無敵も出るよ。<br>
+          得点は進むほど増え、被弾すると減る。<b>ノーミスでボスを倒すと満点！</b></p>
+        <p id="dx-msg" class="level-sub"></p>
+      </section>
+
+      <section class="panel">
+        <h2>永続強化 <span class="level-sub">（シューティングと共通）</span></h2>
+        <div id="dx-upgrade-list"></div>
       </section>
     </div>
 
@@ -168,6 +215,27 @@
     </div>
   </div>
 
+  <div class="game-overlay" id="dx-overlay" hidden>
+    <div class="overlay-inner">
+      <div class="shooter-hud dx-hud">
+        <div>得点 <span id="dx-hud-score">0</span></div>
+        <div id="dx-hud-stage">第1面</div>
+        <div id="dx-hud-power">・ノーマル</div>
+        <div id="dx-hud-lives">❤❤❤</div>
+        <div id="dx-hud-ram" hidden>💢0</div>
+      </div>
+      <div class="boss-bar" id="dx-boss-bar" hidden>
+        <div class="boss-bar-label">👾 <span id="dx-boss-name">-</span></div>
+        <div class="xpbar"><span id="dx-boss-hp-fill" class="danger" style="width:100%"></span></div>
+      </div>
+      <canvas id="dx-canvas" width="640" height="920"></canvas>
+      <div class="overlay-foot">
+        <span class="overlay-hint">指でなぞって移動（前後も可）・弾は自動</span>
+        <button class="btn secondary small" id="dx-quit">中止</button>
+      </div>
+    </div>
+  </div>
+
   <div class="game-overlay" id="rhythm-overlay" hidden>
     <div class="overlay-inner">
       <div class="shooter-hud">
@@ -193,6 +261,7 @@
   </div>
 
   <script type="module" src="./js/shooter.js"></script>
+  <script type="module" src="./js/shooterDx.js"></script>
   <script type="module" src="./js/rhythm.js"></script>
   <script type="module" src="./js/pet.js"></script>
   <script type="module" src="./js/game-tabs.js"></script>

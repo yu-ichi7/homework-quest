@@ -442,6 +442,16 @@ body {
 .shooter-hud #hud-power { color: var(--warn); }
 .shooter-hud #hud-lives { color: #ef4444; letter-spacing: 2px; }
 .shooter-hud #hud-ram { color: #fbbf24; }
+/* シューティングDX（図形で描くので、拡大してもカクカクにしない） */
+#dx-canvas {
+  width: 100%; height: auto; max-height: 72vh;
+  border-radius: 8px; display: block;
+  margin: 0 auto; touch-action: none; background: #0b1020;
+}
+.shooter-hud #dx-hud-stage { color: #9aa4b2; font-size: 12px; }
+.shooter-hud #dx-hud-power { color: var(--warn); }
+.shooter-hud #dx-hud-lives { color: #ef4444; letter-spacing: 2px; }
+.shooter-hud #dx-hud-ram { color: #fbbf24; }
 
 .boss-bar { padding: 0 4px; }
 .boss-bar[hidden] { display: none; }
@@ -503,7 +513,7 @@ body {
 
 /* ゲームの入口メニュー（シューティング／リズム／ペット。タップして中に入る） */
 .game-menu {
-  display: grid; grid-template-columns: repeat(auto-fit, minmax(84px, 1fr));
+  display: grid; grid-template-columns: repeat(3, 1fr);
   gap: 10px; margin-bottom: 16px;
 }
 .game-menu[hidden] { display: none; }

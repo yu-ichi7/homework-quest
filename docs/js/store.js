@@ -4,7 +4,7 @@
 
 import {
   DEFAULT_CONFIG, DEFAULT_CHILDREN, DEFAULT_TASKS, DEFAULT_GAME_STATE,
-  DEFAULT_SHOOTER_STATE, DEFAULT_LOGIN_STATE, DEFAULT_RHYTHM_STATE,
+  DEFAULT_SHOOTER_STATE, DEFAULT_SHOOTER_DX_STATE, DEFAULT_LOGIN_STATE, DEFAULT_RHYTHM_STATE,
 } from './lib/defaults.js';
 import { isSongUnlocked, isSongCleared } from './lib/rhythm.js';
 import { canClaimToday, nextLoginStreak, computeLoginReward } from './lib/login.js';
@@ -44,6 +44,7 @@ function seed() {
       ...DEFAULT_SHOOTER_STATE,
       upgrades: { ...DEFAULT_SHOOTER_STATE.upgrades },
     },
+    shooterDx: { ...DEFAULT_SHOOTER_DX_STATE },
     rhythm: { ...DEFAULT_RHYTHM_STATE, best: {} },
     pet: null,
     petAlbum: [],
@@ -66,19 +67,24 @@ function ensureShape(data) {
     }
     // 得点方式の作り直し・敵の種類追加・背景/ボスのバリエーション追加のたびに
     // ステージ定義を拡張してきたので、bgTheme が無い＝旧い定義は丸ごと差し替える。
-    // 中ボス・ボスの攻撃パターンを入れたリニューアルで midboss が加わった。
-    if (!data.config.shooter.stages?.[0]?.bgTheme || !data.config.shooter.stages?.[0]?.midboss) {
-      data.config.shooter.stages = DEFAULT_CONFIG.shooter.stages;
+    // 一時期、リニューアル版の設定（中ボス・10種類の敵・武器アイテム）で上書きしていた。
+    // リニューアル版は「シューティングDX」として別ゲームにしたので、元の設定に戻す。
+    const sh = data.config.shooter;
+    if (sh.stages?.[0]?.midboss || sh.enemyTypes?.charger || sh.items?.types?.some((t) => t.id === 'spread')) {
+      sh.stages = DEFAULT_CONFIG.shooter.stages;
+      sh.enemyTypes = DEFAULT_CONFIG.shooter.enemyTypes;
+      sh.items = DEFAULT_CONFIG.shooter.items;
+      delete sh.midbossAt;
+      delete sh.midbossStayMs;
       changed = true;
     }
-    // 敵の種類。リニューアルで6種類増え、ドット絵指定（sprite）から大きさ指定（w/h）に変わった。
-    if (!data.config.shooter.enemyTypes?.charger) {
-      data.config.shooter.enemyTypes = DEFAULT_CONFIG.shooter.enemyTypes;
+    if (!sh.stages?.[0]?.bgTheme) {
+      sh.stages = DEFAULT_CONFIG.shooter.stages;
       changed = true;
     }
-    // アイテム。リニューアルで武器アイテムや特殊効果が加わった（旧「威力アップ」は廃止）。
-    if (!data.config.shooter.items?.types?.some((t) => t.id === 'spread')) {
-      data.config.shooter.items = DEFAULT_CONFIG.shooter.items;
+    // 敵の種類（ふつう/かたい/すばやい/狙撃）の定義。
+    if (!sh.enemyTypes) {
+      sh.enemyTypes = DEFAULT_CONFIG.shooter.enemyTypes;
       changed = true;
     }
     // 1プレイの旧価格（50コイン）は新価格へ。
@@ -155,6 +161,13 @@ function ensureShape(data) {
   // デイリーボーナス。
   if (!data.config.loginBonus) { data.config.loginBonus = DEFAULT_CONFIG.loginBonus; changed = true; }
   if (!data.login || typeof data.login !== 'object') { data.login = { ...DEFAULT_LOGIN_STATE }; changed = true; }
+
+  // シューティングDX（リニューアル版）。記録は元のシューティングと別、永続強化は共通。
+  if (!data.config.shooterDx) { data.config.shooterDx = DEFAULT_CONFIG.shooterDx; changed = true; }
+  if (!data.shooterDx || typeof data.shooterDx !== 'object') {
+    data.shooterDx = { ...DEFAULT_SHOOTER_DX_STATE };
+    changed = true;
+  }
 
   // リズムゲーム。
   if (!data.config.rhythm) { data.config.rhythm = DEFAULT_CONFIG.rhythm; changed = true; }
@@ -495,6 +508,73 @@ export function startRun(stageIndex = 0, ramCount = 0) {
 export function finishRun({ score = 0, kills = 0, clearedIndex = 0 } = {}) {
   const data = load();
   const s = data.shooter;
+  const isNewRecord = score > (s.highScore || 0);
+  if (isNewRecord) s.highScore = score;
+  s.totalKills = (s.totalKills || 0) + kills;
+  s.plays = (s.plays || 0) + 1;
+  const unlockedNew = clearedIndex > (s.cleared || 0);
+  if (unlockedNew) s.cleared = clearedIndex;
+  save(data);
+  return {
+    isNewRecord, unlockedNew,
+    highScore: s.highScore, totalKills: s.totalKills, plays: s.plays, cleared: s.cleared,
+  };
+}
+
+// ---- シューティングDX（リニューアル版） ----
+// ステージの進み・最高得点は元のシューティングと別に記録する。
+// 永続強化（機体の強化・護衛機）は元のシューティングのものをそのまま使う。
+
+// DX の設定に、元のシューティングの強化の定義を合わせた「機体性能の計算用」設定。
+function dxPlaneConfig(data) {
+  return { ...data.config.shooterDx, upgrades: data.config.shooter.upgrades };
+}
+
+export function getShooterDxView() {
+  const data = load();
+  const cfg = data.config.shooterDx;
+  const s = data.shooterDx;
+  const stages = cfg.stages.map((st, i) => ({
+    index: i,
+    name: st.name,
+    bossName: st.boss.name,
+    fullScore: st.clearScore,
+    locked: !isStageUnlocked(i, s.cleared || 0),
+    cleared: i < (s.cleared || 0),
+  }));
+  return {
+    balance: balance(data.game),
+    playCost: cfg.playCost,
+    ramCost: cfg.ramItem.cost,
+    ramMax: cfg.ramItem.max,
+    highScore: s.highScore || 0,
+    totalKills: s.totalKills || 0,
+    plays: s.plays || 0,
+    cleared: s.cleared || 0,
+    stages,
+    config: cfg,
+  };
+}
+
+export function startDxRun(stageIndex = 0, ramCount = 0) {
+  const data = load();
+  const cfg = data.config.shooterDx;
+  if (!cfg.stages[stageIndex]) return { ok: false, reason: 'no-stage' };
+  if (!isStageUnlocked(stageIndex, data.shooterDx.cleared || 0)) return { ok: false, reason: 'locked' };
+  const ram = Math.max(0, Math.min(cfg.ramItem.max, ramCount || 0));
+  const cost = cfg.playCost + ram * cfg.ramItem.cost;
+  if (balance(data.game) < cost) return { ok: false, reason: 'not-enough', cost };
+  data.game.coinsSpent = (data.game.coinsSpent || 0) + cost;
+  save(data);
+  return {
+    ok: true, cost, stageIndex, ramCount: ram,
+    stats: planeStats(data.shooter.upgrades, dxPlaneConfig(data)),
+  };
+}
+
+export function finishDxRun({ score = 0, kills = 0, clearedIndex = 0 } = {}) {
+  const data = load();
+  const s = data.shooterDx;
   const isNewRecord = score > (s.highScore || 0);
   if (isNewRecord) s.highScore = score;
   s.totalKills = (s.totalKills || 0) + kills;
