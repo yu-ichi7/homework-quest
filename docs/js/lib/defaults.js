@@ -122,7 +122,7 @@ export const DEFAULT_SHOOTER = {
 // シューティングDX（リニューアル版）の既定パラメータ。元のシューティングとは別のゲームとして遊ぶ。
 // 武器の持ち替え・特殊アイテム・10種類の敵・中ボス・攻撃パターンの違うボスがある。
 // 見た目はドット絵ではなく shooterArt.js が図形で描く。
-// 永続強化（upgrades）は持たず、元のシューティングの強化をそのまま共通で使う。
+// 永続強化（upgrades）は元のシューティングとは別に持つ（DXは強化0から始まる）。
 export const DEFAULT_SHOOTER_DX = {
   playCost: 30,           // 1プレイのコイン
   base: {
@@ -263,6 +263,8 @@ export const DEFAULT_SHOOTER_DX = {
     damagePenaltyRatio: 0.08, // 1回被弾するごとに満点の8%を減点
     wavePhaseRatio: 0.5,      // ボス出現までで稼げる割合
   },
+  // 永続強化（買うとずっと残る）。種類・値段は元のシューティングと同じだが、レベルはDX専用。
+  upgrades: DEFAULT_SHOOTER.upgrades,
   // 出撃前に買う消耗アイテム。体当たりした敵をノーダメージで倒せる（1回で1つ消費）。
   ramItem: { cost: 10, max: 5 },
   fireIntervalMinMs: 90,  // 連射間隔の下限
@@ -346,8 +348,9 @@ export const DEFAULT_SHOOTER_STATE = {
   cleared: 0,   // クリア済みの最大ステージ番号（1始まり。0なら未クリア）
 };
 
-// シューティングDXの記録。永続強化は元のシューティング（DEFAULT_SHOOTER_STATE.upgrades）と共通。
+// シューティングDXの記録と永続強化（元のシューティングとは別。0から始まる）。
 export const DEFAULT_SHOOTER_DX_STATE = {
+  upgrades: { power: 0, rapid: 0, life: 0, escort: 0 },
   highScore: 0,
   totalKills: 0,
   plays: 0,

@@ -44,7 +44,7 @@ function seed() {
       ...DEFAULT_SHOOTER_STATE,
       upgrades: { ...DEFAULT_SHOOTER_STATE.upgrades },
     },
-    shooterDx: { ...DEFAULT_SHOOTER_DX_STATE },
+    shooterDx: { ...DEFAULT_SHOOTER_DX_STATE, upgrades: { ...DEFAULT_SHOOTER_DX_STATE.upgrades } },
     rhythm: { ...DEFAULT_RHYTHM_STATE, best: {} },
     pet: null,
     petAlbum: [],
@@ -162,10 +162,19 @@ function ensureShape(data) {
   if (!data.config.loginBonus) { data.config.loginBonus = DEFAULT_CONFIG.loginBonus; changed = true; }
   if (!data.login || typeof data.login !== 'object') { data.login = { ...DEFAULT_LOGIN_STATE }; changed = true; }
 
-  // シューティングDX（リニューアル版）。記録は元のシューティングと別、永続強化は共通。
+  // シューティングDX（リニューアル版）。記録も永続強化も元のシューティングとは別。
   if (!data.config.shooterDx) { data.config.shooterDx = DEFAULT_CONFIG.shooterDx; changed = true; }
+  if (!data.config.shooterDx.upgrades) {
+    data.config.shooterDx.upgrades = DEFAULT_CONFIG.shooterDx.upgrades;
+    changed = true;
+  }
   if (!data.shooterDx || typeof data.shooterDx !== 'object') {
-    data.shooterDx = { ...DEFAULT_SHOOTER_DX_STATE };
+    data.shooterDx = { ...DEFAULT_SHOOTER_DX_STATE, upgrades: { ...DEFAULT_SHOOTER_DX_STATE.upgrades } };
+    changed = true;
+  } else if (!data.shooterDx.upgrades) {
+    // 最初のDXは元のシューティングの強化を共通で使っていた。DX専用の強化を0から持たせる
+    // （元のシューティングの強化はそのまま）。
+    data.shooterDx.upgrades = { ...DEFAULT_SHOOTER_DX_STATE.upgrades };
     changed = true;
   }
 
@@ -522,18 +531,21 @@ export function finishRun({ score = 0, kills = 0, clearedIndex = 0 } = {}) {
 }
 
 // ---- シューティングDX（リニューアル版） ----
-// ステージの進み・最高得点は元のシューティングと別に記録する。
-// 永続強化（機体の強化・護衛機）は元のシューティングのものをそのまま使う。
-
-// DX の設定に、元のシューティングの強化の定義を合わせた「機体性能の計算用」設定。
-function dxPlaneConfig(data) {
-  return { ...data.config.shooterDx, upgrades: data.config.shooter.upgrades };
-}
+// ステージの進み・最高得点・永続強化は、どれも元のシューティングとは別に記録する。
 
 export function getShooterDxView() {
   const data = load();
   const cfg = data.config.shooterDx;
   const s = data.shooterDx;
+  const upgrades = Object.entries(cfg.upgrades).map(([kind, u]) => ({
+    kind,
+    name: u.name,
+    icon: u.icon,
+    desc: u.desc,
+    level: s.upgrades[kind] || 0,
+    maxLevel: maxUpgradeLevel(kind, cfg),
+    nextCost: nextUpgradeCost(kind, s.upgrades[kind] || 0, cfg),
+  }));
   const stages = cfg.stages.map((st, i) => ({
     index: i,
     name: st.name,
@@ -551,9 +563,24 @@ export function getShooterDxView() {
     totalKills: s.totalKills || 0,
     plays: s.plays || 0,
     cleared: s.cleared || 0,
+    upgrades,
     stages,
     config: cfg,
   };
+}
+
+// DXの永続強化を1レベル買う（元のシューティングの強化とは別）。
+export function buyDxUpgrade(kind) {
+  const data = load();
+  const cfg = data.config.shooterDx;
+  const level = data.shooterDx.upgrades[kind] || 0;
+  const cost = nextUpgradeCost(kind, level, cfg);
+  if (cost === null) return { ok: false, reason: 'max' };
+  if (balance(data.game) < cost) return { ok: false, reason: 'not-enough', cost };
+  data.game.coinsSpent = (data.game.coinsSpent || 0) + cost;
+  data.shooterDx.upgrades[kind] = level + 1;
+  save(data);
+  return { ok: true, cost, kind, level: level + 1 };
 }
 
 export function startDxRun(stageIndex = 0, ramCount = 0) {
@@ -568,7 +595,7 @@ export function startDxRun(stageIndex = 0, ramCount = 0) {
   save(data);
   return {
     ok: true, cost, stageIndex, ramCount: ram,
-    stats: planeStats(data.shooter.upgrades, dxPlaneConfig(data)),
+    stats: planeStats(data.shooterDx.upgrades, cfg),
   };
 }
 

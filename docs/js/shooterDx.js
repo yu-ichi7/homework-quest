@@ -1,4 +1,4 @@
-import { getShooterView, getShooterDxView, startDxRun, finishDxRun, buyUpgrade } from './store.js';
+import { getShooterDxView, startDxRun, finishDxRun, buyDxUpgrade } from './store.js';
 import {
   stageAt, hits, shouldDropItem, pickItemType, applyItem, pickEnemyType,
   stageProgress, computeScore,
@@ -96,7 +96,7 @@ function renderStages() {
 function renderUpgrades() {
   const el = document.getElementById('dx-upgrade-list');
   el.innerHTML = '';
-  for (const u of getShooterView().upgrades) {
+  for (const u of view.upgrades) {
     const row = document.createElement('div');
     row.className = 'task-row';
     const maxed = u.nextCost === null;
@@ -111,7 +111,7 @@ function renderUpgrades() {
     btn.textContent = maxed ? 'MAX' : '強化';
     btn.disabled = maxed;
     btn.onclick = () => {
-      const res = buyUpgrade(u.kind);
+      const res = buyDxUpgrade(u.kind);
       document.getElementById('dx-msg').textContent = res.ok
         ? `✅ ${u.name} が Lv.${res.level} になった！`
         : (res.reason === 'not-enough' ? '🪙が足りません' : '');
