@@ -70,6 +70,12 @@ const THEMES = {
   storm: { top: '#120b24', bottom: '#3b2a63', far: 'rgba(160,130,255,0.18)', dot: '#fde68a', kind: 'clouds' },
   volcano: { top: '#1a0707', bottom: '#6b1d0e', far: 'rgba(255,120,50,0.18)', dot: '#fdba74', kind: 'embers' },
   space: { top: '#02030a', bottom: '#141a3a', far: 'rgba(120,160,255,0.12)', dot: '#ffffff', kind: 'stars' },
+  // 第6〜10面
+  ocean: { top: '#031a33', bottom: '#0b5f7c', far: 'rgba(80,180,255,0.16)', dot: '#bae6fd', kind: 'bubbles' },
+  ice: { top: '#0b1f3a', bottom: '#5fb4e6', far: 'rgba(255,255,255,0.18)', dot: '#ffffff', kind: 'snow' },
+  desert: { top: '#3b1f0a', bottom: '#c2690a', far: 'rgba(254,215,170,0.20)', dot: '#fde68a', kind: 'hills' },
+  nebula: { top: '#0a0014', bottom: '#3b0764', far: 'rgba(217,70,239,0.18)', dot: '#f5d0fe', kind: 'stars' },
+  core: { top: '#1a1200', bottom: '#6b3a08', far: 'rgba(253,224,71,0.16)', dot: '#fef08a', kind: 'embers' },
 };
 
 export function drawBackground(ctx, w, h, now, theme, slow) {
@@ -97,14 +103,16 @@ export function drawBackground(ctx, w, h, now, theme, slow) {
     }
   }
 
-  // 手前の粒（星・火の粉・花びら）。
+  // 手前の粒（星・火の粉・花びら・泡・雪）。火の粉と泡は下から上へ、雪は左右にゆれながら落ちる。
   ctx.fillStyle = t.dot;
   const count = t.kind === 'stars' ? 40 : 26;
+  const rising = t.kind === 'embers' || t.kind === 'bubbles';
+  const swaying = rising || t.kind === 'snow';
   for (let i = 0; i < count; i += 1) {
     const speed = 6 + (i % 4) * 3;
-    const x = (i * 83 + (t.kind === 'embers' ? Math.sin(now / 700 + i) * 10 : 0)) % w;
-    const y = t.kind === 'embers'
-      ? h - (((i * 61) + now / speed) % h)   // 火の粉は下から上へ
+    const x = ((i * 83 + (swaying ? Math.sin(now / 700 + i) * 10 : 0)) % w + w) % w;
+    const y = rising
+      ? h - (((i * 61) + now / speed) % h)
       : ((i * 61) + now / speed) % h;
     ctx.globalAlpha = 0.35 + (i % 3) * 0.2;
     circle(ctx, x, y, 1 + (i % 3) * 0.6);
@@ -517,6 +525,185 @@ const BOSS_DRAW = {
     circle(ctx, cx, cy, pulse * 1.8);
     ctx.fill();
   },
+
+  // ---- 第6〜10面のボス ----
+
+  // 深海の大王イカ：上へとがった胴と、自機のほうへゆれる触手。
+  squid(ctx, cx, cy, w, h, now) {
+    const t = cy - h / 2;
+    ctx.strokeStyle = '#c026d3';
+    ctx.lineWidth = 4;
+    ctx.lineCap = 'round';
+    for (let i = 0; i < 6; i += 1) {
+      const x0 = cx + (i - 2.5) * 8;
+      ctx.beginPath();
+      ctx.moveTo(x0, cy + 6);
+      for (let k = 1; k <= 4; k += 1) {
+        ctx.lineTo(x0 + Math.sin(now / 220 + i + k) * 4, cy + 6 + k * 7);
+      }
+      ctx.stroke();
+    }
+    ctx.lineCap = 'butt';
+    ctx.fillStyle = '#e879f9';
+    poly(ctx, [[cx - 14, t + 10], [cx - 30, t + 2], [cx - 18, t + 20]]); ctx.fill();
+    poly(ctx, [[cx + 14, t + 10], [cx + 30, t + 2], [cx + 18, t + 20]]); ctx.fill();
+    ctx.fillStyle = vGrad(ctx, t - 6, cy + 10, [[0, '#f5d0fe'], [1, '#86198f']]);
+    poly(ctx, [[cx, t - 6], [cx + 22, cy + 2], [cx + 18, cy + 10], [cx - 18, cy + 10], [cx - 22, cy + 2]]);
+    ctx.fill();
+    ctx.strokeStyle = '#4a044e';
+    ctx.lineWidth = 1.5;
+    ctx.stroke();
+    for (const dir of [-1, 1]) {
+      ctx.fillStyle = '#ffffff';
+      ctx.beginPath();
+      ctx.ellipse(cx + dir * 9, cy + 1, 5, 6, 0, 0, TAU);
+      ctx.fill();
+      ctx.fillStyle = '#1e1b4b';
+      circle(ctx, cx + dir * 8, cy + 2, 2.6);
+      ctx.fill();
+      ctx.strokeStyle = '#4a044e';
+      ctx.lineWidth = 2;
+      ctx.beginPath();
+      ctx.moveTo(cx + dir * 15, cy - 7);
+      ctx.lineTo(cx + dir * 4, cy - 4);
+      ctx.stroke();
+    }
+  },
+  // 氷の女王：氷の冠と、下へ広がる氷のドレス。
+  ice(ctx, cx, cy, w, h, now) {
+    ctx.fillStyle = vGrad(ctx, cy - 6, cy + h / 2, [[0, '#e0f2fe'], [1, '#0284c7']]);
+    poly(ctx, [[cx, cy - 8], [cx + 32, cy + h / 2], [cx - 32, cy + h / 2]]);
+    ctx.fill();
+    ctx.strokeStyle = 'rgba(255,255,255,0.8)';
+    ctx.lineWidth = 1.5;
+    ctx.stroke();
+    ctx.fillStyle = '#bae6fd';
+    for (const [dx, top] of [[-14, 34], [-7, 42], [0, 48], [7, 42], [14, 34]]) {
+      poly(ctx, [[cx + dx - 4, cy - 20], [cx + dx, cy - top], [cx + dx + 4, cy - 20]]);
+      ctx.fill();
+    }
+    ctx.fillStyle = '#f0f9ff';
+    ctx.beginPath();
+    ctx.ellipse(cx, cy - 10, 12, 13, 0, 0, TAU);
+    ctx.fill();
+    ctx.fillStyle = '#0369a1';
+    for (const dir of [-1, 1]) {
+      poly(ctx, [[cx + dir * 3, cy - 11], [cx + dir * 9, cy - 14], [cx + dir * 8, cy - 9]]);
+      ctx.fill();
+    }
+    ctx.strokeStyle = '#0369a1';
+    ctx.lineWidth = 1.5;
+    ctx.beginPath();
+    ctx.moveTo(cx - 4, cy - 3);
+    ctx.lineTo(cx + 4, cy - 3);
+    ctx.stroke();
+    ctx.fillStyle = '#ffffff';
+    for (let i = 0; i < 4; i += 1) {
+      const a = now / 700 + (i * TAU) / 4;
+      circle(ctx, cx + Math.cos(a) * 36, cy + Math.sin(a) * 14, 1.8);
+      ctx.fill();
+    }
+  },
+  // 砂漠の大サソリ：左右の大きなはさみと、背中の上で曲がる毒のしっぽ。
+  scorpion(ctx, cx, cy, w, h) {
+    ctx.strokeStyle = '#78350f';
+    ctx.lineWidth = 2.5;
+    for (const dir of [-1, 1]) {
+      for (let i = 0; i < 3; i += 1) {
+        ctx.beginPath();
+        ctx.moveTo(cx + dir * 14, cy - 6 + i * 6);
+        ctx.lineTo(cx + dir * 30, cy - 12 + i * 8);
+        ctx.stroke();
+      }
+      ctx.lineWidth = 4;
+      ctx.beginPath();
+      ctx.moveTo(cx + dir * 12, cy + 12);
+      ctx.lineTo(cx + dir * 26, cy + 18);
+      ctx.stroke();
+      ctx.lineWidth = 2.5;
+      ctx.fillStyle = vGrad(ctx, cy + 12, cy + 30, [[0, '#fbbf24'], [1, '#b45309']]);
+      ctx.beginPath();
+      ctx.ellipse(cx + dir * 32, cy + 22, 9, 7, 0, 0, TAU);
+      ctx.fill();
+      ctx.strokeStyle = '#78350f';
+      ctx.beginPath();
+      ctx.moveTo(cx + dir * 32, cy + 22);
+      ctx.lineTo(cx + dir * 40, cy + 26);
+      ctx.stroke();
+    }
+    ctx.strokeStyle = '#b45309';
+    ctx.lineWidth = 6;
+    ctx.lineCap = 'round';
+    ctx.beginPath();
+    ctx.moveTo(cx, cy - 10);
+    ctx.quadraticCurveTo(cx + 6, cy - 34, cx + 22, cy - 30);
+    ctx.stroke();
+    ctx.lineCap = 'butt';
+    ctx.fillStyle = '#7f1d1d';
+    poly(ctx, [[cx + 20, cy - 34], [cx + 30, cy - 28], [cx + 22, cy - 22]]);
+    ctx.fill();
+    ctx.fillStyle = vGrad(ctx, cy - 14, cy + 14, [[0, '#fcd34d'], [1, '#92400e']]);
+    ctx.beginPath();
+    ctx.ellipse(cx, cy, 18, 13, 0, 0, TAU);
+    ctx.fill();
+    ctx.beginPath();
+    ctx.ellipse(cx, cy + 14, 12, 8, 0, 0, TAU);
+    ctx.fill();
+    glowDot(ctx, cx - 5, cy + 15, 2.2, '#ef4444', '#fecaca');
+    glowDot(ctx, cx + 5, cy + 15, 2.2, '#ef4444', '#fecaca');
+  },
+  // 暗黒星雲の魔王：うずまく紫の雲の中に、光る目。
+  nebula(ctx, cx, cy, w, h, now) {
+    for (let i = 0; i < 6; i += 1) {
+      const a = now / 1500 + (i * TAU) / 6;
+      ctx.fillStyle = 'rgba(147,51,234,0.45)';
+      circle(ctx, cx + Math.cos(a) * 20, cy + Math.sin(a) * 12, 16);
+      ctx.fill();
+    }
+    ctx.save();
+    ctx.translate(cx, cy);
+    ctx.rotate(Math.sin(now / 900) * 0.2);
+    ctx.strokeStyle = 'rgba(244,114,182,0.7)';
+    ctx.lineWidth = 2;
+    ctx.beginPath();
+    ctx.ellipse(0, 0, 42, 10, 0, 0, TAU);
+    ctx.stroke();
+    ctx.restore();
+    ctx.fillStyle = rGrad(ctx, cx, cy, 20, [[0, '#312e81'], [1, '#0a0014']]);
+    circle(ctx, cx, cy, 18);
+    ctx.fill();
+    glowDot(ctx, cx - 7, cy - 2, 3, '#e879f9', '#ffffff');
+    glowDot(ctx, cx + 7, cy - 2, 3, '#e879f9', '#ffffff');
+    ctx.strokeStyle = '#e879f9';
+    ctx.lineWidth = 1.5;
+    ctx.beginPath();
+    ctx.moveTo(cx - 6, cy + 8);
+    ctx.quadraticCurveTo(cx, cy + 4, cx + 6, cy + 8);
+    ctx.stroke();
+  },
+  // 星の核（最終ボス）：回る金色の星と、まわりを回る光の玉。形態が進むほど赤くなる。
+  final(ctx, cx, cy, w, h, now, b) {
+    const form = b?.form || 1;
+    const [light, dark] = form === 1 ? ['#fef08a', '#ca8a04'] : form === 2 ? ['#fed7aa', '#ea580c'] : ['#fecaca', '#dc2626'];
+    ctx.save();
+    ctx.translate(cx, cy);
+    ctx.rotate(now / (form === 3 ? 500 : 900));
+    ctx.fillStyle = vGrad(ctx, -30, 30, [[0, light], [1, dark]]);
+    poly(ctx, Array.from({ length: 16 }, (_, i) => {
+      const a = (i / 16) * TAU;
+      const r = i % 2 === 0 ? 30 : 14;
+      return [Math.cos(a) * r, Math.sin(a) * r];
+    }));
+    ctx.fill();
+    ctx.restore();
+    ctx.fillStyle = rGrad(ctx, cx, cy, 18, [[0, '#ffffff'], [0.5, light], [1, 'rgba(0,0,0,0)']]);
+    circle(ctx, cx, cy, 18);
+    ctx.fill();
+    for (let i = 0; i < 4; i += 1) {
+      const a = now / 600 + (i * TAU) / 4;
+      glowDot(ctx, cx + Math.cos(a) * 38, cy + Math.sin(a) * 20, 3, dark, light);
+    }
+  },
 };
 
 export function drawBoss(ctx, b, pattern, now) {
@@ -528,7 +715,7 @@ export function drawBoss(ctx, b, pattern, now) {
     circle(ctx, cx, cy, r);
     ctx.fill();
   }
-  (BOSS_DRAW[pattern] || BOSS_DRAW.spiral)(ctx, cx, cy, b.w, b.h, now);
+  (BOSS_DRAW[pattern] || BOSS_DRAW.spiral)(ctx, cx, cy, b.w, b.h, now, b);
   if (b.hitUntil > now) {
     ctx.globalAlpha = 0.35;
     ctx.fillStyle = '#ffffff';
@@ -574,6 +761,8 @@ const EBULLET_COLOR = {
   rock: ['#b45309', '#fcd34d'],
   spiral: ['#a855f7', '#f3e8ff'],
   spark: ['#facc15', '#fefce8'],
+  ink: ['#6d28d9', '#ddd6fe'],
+  ice: ['#38bdf8', '#ffffff'],
 };
 
 export function drawEnemyBullet(ctx, eb) {
@@ -631,6 +820,24 @@ export function drawHazard(ctx, hz, now) {
     ctx.fillRect(hz.x - 6, hz.y, hz.w + 12, hz.h);
     ctx.fillStyle = vGrad(ctx, hz.y, hz.y + hz.h, [[0, '#ffffff'], [1, '#fde047']]);
     ctx.fillRect(cx - hz.w / 4, hz.y, hz.w / 2, hz.h);
+  } else if (hz.kind === 'tentacle') {
+    // 触手：紫の太い帯に吸盤の丸。
+    ctx.fillStyle = vGrad(ctx, hz.y, hz.y + hz.h, [[0, '#a855f7'], [1, '#581c87']]);
+    ctx.fillRect(hz.x, hz.y, hz.w, hz.h);
+    ctx.fillStyle = 'rgba(243,232,255,0.8)';
+    for (let y = hz.y + 12; y < hz.y + hz.h; y += 22) {
+      circle(ctx, cx, y, 3.5);
+      ctx.fill();
+    }
+  } else if (hz.kind === 'sand') {
+    // 砂嵐：黄土色の帯に、流れる砂の筋。
+    ctx.fillStyle = 'rgba(217,119,6,0.55)';
+    ctx.fillRect(hz.x, hz.y, hz.w, hz.h);
+    ctx.fillStyle = 'rgba(254,243,199,0.7)';
+    for (let i = 0; i < 12; i += 1) {
+      const y = hz.y + ((i * 47 + now / 3) % hz.h);
+      ctx.fillRect(hz.x + ((i * 29) % hz.w), y, 10, 2);
+    }
   } else {
     ctx.fillStyle = vGrad(ctx, hz.y, hz.y + hz.h, [[0, 'rgba(254,215,170,0.2)'], [0.4, '#fb923c'], [1, '#dc2626']]);
     ctx.fillRect(hz.x, hz.y, hz.w, hz.h);

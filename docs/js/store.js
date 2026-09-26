@@ -168,6 +168,11 @@ function ensureShape(data) {
     data.config.shooterDx.upgrades = DEFAULT_CONFIG.shooterDx.upgrades;
     changed = true;
   }
+  // ステージが増えたら新しい一覧に差し替える（進み具合は番号で持っているので、第1〜5面の記録は残る）。
+  if ((data.config.shooterDx.stages?.length || 0) < DEFAULT_CONFIG.shooterDx.stages.length) {
+    data.config.shooterDx.stages = DEFAULT_CONFIG.shooterDx.stages;
+    changed = true;
+  }
   if (!data.shooterDx || typeof data.shooterDx !== 'object') {
     data.shooterDx = { ...DEFAULT_SHOOTER_DX_STATE, upgrades: { ...DEFAULT_SHOOTER_DX_STATE.upgrades } };
     changed = true;

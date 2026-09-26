@@ -824,6 +824,141 @@ const BOSS_PATTERNS = {
       }
     },
   },
+
+  // ---- 第6〜10面のボス ----
+
+  // 深海の大王イカ：全方向に広がる墨の輪＋予告のあとに触手が縦にのびる。
+  squid: {
+    move(b, dt, sf, W, now) {
+      bounce(b, run.stage.boss.speed * dt * sf, W);
+      b.y = b.baseY + Math.sin(now / 500) * 8;
+    },
+    attack(b, now, ebs, fireMs) {
+      const { W, H } = canvasSize();
+      if (now >= b.fireAt) {
+        b.fireAt = now + fireMs;
+        const n = run.stage.boss.ways + (b.rage ? 4 : 0);
+        for (let i = 0; i < n; i += 1) {
+          const a = b.angle + (i * TAU) / n;
+          shoot(b.x + b.w / 2, b.y + b.h / 2, Math.cos(a) * ebs * 0.6, Math.sin(a) * ebs * 0.6, 10, 'ink');
+        }
+        b.angle += 0.2;
+      }
+      if (now >= b.subAt) {
+        b.subAt = now + (b.rage ? 1900 : 2600);
+        const top = b.y + b.h;
+        const xs = [run.player.x];
+        if (b.rage) xs.push(20 + Math.random() * (W - 40));
+        for (const x of xs) addHazard('tentacle', x - 12, top, 24, H - top, 800, 450);
+      }
+    },
+  },
+  // 氷の女王：扇状の氷の弾＋自機の真上から落ちてくるつらら。
+  ice: {
+    move(b, dt, sf, W) { bounce(b, run.stage.boss.speed * dt * sf, W); },
+    attack(b, now, ebs, fireMs) {
+      const { W } = canvasSize();
+      if (now >= b.fireAt) {
+        b.fireAt = now + fireMs;
+        const ways = run.stage.boss.ways + (b.rage ? 2 : 0);
+        for (let i = 0; i < ways; i += 1) {
+          const a = Math.PI / 2 + (i - (ways - 1) / 2) * 0.22;
+          shoot(b.x + b.w / 2, b.y + b.h, Math.cos(a) * ebs * 0.9, Math.sin(a) * ebs * 0.9, 10, 'ice');
+        }
+      }
+      if (now >= b.subAt) {
+        b.subAt = now + (b.rage ? 800 : 1100);
+        // 1本は自機の真上から、残りはばらばらの位置から。
+        shoot(run.player.x, -10, 0, ebs * 0.9, 12, 'ice');
+        const extra = b.rage ? 2 : 1;
+        for (let i = 0; i < extra; i += 1) shoot(16 + Math.random() * (W - 32), -10, 0, ebs * 0.9, 12, 'ice');
+      }
+    },
+  },
+  // 砂漠の大サソリ：しっぽから自機ねらいの一列連射＋画面の左右に砂嵐（予告あり）。
+  scorpion: {
+    move(b, dt, sf, W) { bounce(b, run.stage.boss.speed * 1.2 * dt * sf, W); },
+    attack(b, now, ebs, fireMs) {
+      const { W, H } = canvasSize();
+      if (now >= b.fireAt) {
+        b.fireAt = now + fireMs;
+        const n = run.stage.boss.ways + (b.rage ? 2 : 0);
+        for (let i = 0; i < n; i += 1) {
+          // 同じ向きに速さだけ変えて撃つ＝一列に並んで飛んでくる。怒ると少し広がる。
+          const off = b.rage ? (i - (n - 1) / 2) * 0.06 : 0;
+          const [vx, vy] = aim(b.x + b.w / 2, b.y + b.h, ebs * (1 + i * 0.15), off);
+          shoot(b.x + b.w / 2, b.y + b.h, vx, vy, 9, 'spark');
+        }
+      }
+      if (now >= b.subAt) {
+        b.subAt = now + (b.rage ? 2000 : 2800);
+        const top = 140;
+        const left = () => addHazard('sand', 0, top, 80, H - top, 900, 700);
+        const right = () => addHazard('sand', W - 80, top, 80, H - top, 900, 700);
+        if (b.rage) {
+          left();
+          right();
+        } else {
+          b.sandLeft = !b.sandLeft; // 左右交互に出す
+          if (b.sandLeft) left(); else right();
+        }
+      }
+    },
+  },
+  // 暗黒星雲の魔王：逆向きに回る二重の渦巻き＋自機ねらいの3方向弾。
+  nebula: {
+    move(b, dt, sf, W, now) {
+      b.x = W / 2 - b.w / 2 + Math.sin(now / 1100) * 50;
+    },
+    attack(b, now, ebs, fireMs) {
+      if (now >= b.subAt) {
+        b.subAt = now + (b.rage ? 135 : 170); // 第5面（要塞中枢）より少し多いくらいに抑える
+        const arms = run.stage.boss.arms || run.stage.boss.ways;
+        for (let i = 0; i < arms; i += 1) {
+          for (const dir of [1, -1]) {
+            const a = dir * b.angle + (i * TAU) / arms;
+            shoot(b.x + b.w / 2, b.y + b.h / 2, Math.cos(a) * ebs * 0.5, Math.sin(a) * ebs * 0.5, 8, 'spiral');
+          }
+        }
+        b.angle += 0.28;
+      }
+      if (now >= b.fireAt) {
+        b.fireAt = now + fireMs;
+        for (const off of [-0.2, 0, 0.2]) {
+          const [vx, vy] = aim(b.x + b.w / 2, b.y + b.h, ebs, off);
+          shoot(b.x + b.w / 2, b.y + b.h, vx, vy, 10, 'aimed');
+        }
+      }
+    },
+  },
+  // 星の核（最終ボス）：体力が減るたびに攻撃が変わる3段階。
+  //   第1形態：墨の輪（イカ）→ 第2形態：二重の渦巻き（魔王）→ 第3形態：渦巻き＋雷の柱。
+  final: {
+    move(b, dt, sf, W, now) {
+      b.x = W / 2 - b.w / 2 + Math.sin(now / 1000) * 60;
+    },
+    attack(b, now, ebs, fireMs) {
+      const { W, H } = canvasSize();
+      const ratio = b.hp / b.maxHp;
+      const form = ratio > 2 / 3 ? 1 : (ratio > 1 / 3 ? 2 : 3);
+      if (form !== (b.form || 1)) {
+        b.form = form;
+        setBanner(`${run.stage.boss.name} 第${form}形態！`, 1400);
+        run.ebullets = []; // 形態が変わる瞬間は弾を消して、見て覚える間をつくる
+      }
+      if (form === 1) {
+        BOSS_PATTERNS.squid.attack(b, now, ebs, fireMs);
+        return;
+      }
+      BOSS_PATTERNS.nebula.attack(b, now, ebs, fireMs);
+      if (form === 3 && now >= (b.extraAt || 0)) {
+        b.extraAt = now + 2200;
+        const top = b.y + b.h;
+        addHazard('thunder', run.player.x - 13, top, 26, H - top, 800, 350);
+        addHazard('thunder', 20 + Math.random() * (W - 40), top, 26, H - top, 800, 350);
+      }
+    },
+  },
 };
 
 function bounce(b, step, W) {
