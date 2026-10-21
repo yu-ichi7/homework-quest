@@ -332,6 +332,27 @@ export function moveTask(id, direction, childId, dateStr = todayStr()) {
   return { ok: true };
 }
 
+// 「今日」の表示順で、タスクを toIndex 番目（0始まり）へ動かす（長押しで引っぱって並び替えるとき）。
+// 今日見えているタスクが data.tasks の中で入っていた位置（枠）に、新しい順で入れ直すので、
+// 曜日違いで今日は見えていないタスクの位置は変わらない。
+export function moveTaskTo(id, toIndex, childId, dateStr = todayStr()) {
+  const data = load();
+  const order = expandForDay(data.tasks, childId, dateStr).map((t) => t.id);
+  const from = order.indexOf(id);
+  if (from < 0) return { ok: false, reason: 'not-visible' };
+  const to = Math.max(0, Math.min(order.length - 1, toIndex));
+  if (from === to) return { ok: true, moved: false };
+  order.splice(from, 1);
+  order.splice(to, 0, id);
+  const visible = new Set(order);
+  const slots = [];
+  data.tasks.forEach((t, i) => { if (visible.has(t.id)) slots.push(i); });
+  const byId = new Map(data.tasks.map((t) => [t.id, t]));
+  slots.forEach((slot, k) => { data.tasks[slot] = byId.get(order[k]); });
+  save(data);
+  return { ok: true, moved: true };
+}
+
 // タスク履歴ページ用。対象タスクと、日別の達成回数マップ・炎・累計・目標をまとめて返す。
 export function getTaskHistory(taskId, today = todayStr()) {
   const data = load();

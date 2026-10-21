@@ -1,6 +1,6 @@
 import {
   getChildren, getConfig, getToday, addCompletion, removeCompletion,
-  getLoginBonusView, claimLoginBonus, moveTask, WEEKDAY_JP,
+  getLoginBonusView, claimLoginBonus, moveTask, moveTaskTo, WEEKDAY_JP,
 } from './store.js';
 import { levelProgress } from './lib/levels.js';
 import { flameTier } from './lib/streak.js';
@@ -26,6 +26,7 @@ function init() {
   document.getElementById('day-prev').onclick = () => shiftDay(-1);
   document.getElementById('day-next').onclick = () => shiftDay(1);
   document.getElementById('back-today').onclick = () => { state.viewDate = todayStr(); refresh(); };
+  wireSortGestures();
   renderLoginBonus();
   refresh();
 }
@@ -145,6 +146,8 @@ function refresh() {
   items.forEach((item, i) => {
     list.appendChild(taskCard(item, i === 0, i === items.length - 1));
   });
+  wireLongPress(list, items);
+  document.getElementById('sort-hint').hidden = items.length < 2;
 }
 
 // 日付の見出し・前後ボタン・「過去を見ています」の帯を更新する。
@@ -204,8 +207,113 @@ function taskCard(item, isFirst, isLast) {
   }
   card.querySelector('.t-move-up').onclick = (e) => { e.stopPropagation(); reorder(item, -1); };
   card.querySelector('.t-move-down').onclick = (e) => { e.stopPropagation(); reorder(item, 1); };
-  card.onclick = () => tapTask(item);
+  card.onclick = () => { if (!suppressClick) tapTask(item); };
+  card.addEventListener('contextmenu', (e) => e.preventDefault()); // 長押しでメニューを出さない
   return card;
+}
+
+// ---- 長押しで並び替え ----
+// カードを長押しすると持ち上がり、そのまま上下に動かして、離した位置へ入れ替わる。
+// 長押しが成立する前に指が動いたら、スクロールとみなして何もしない。
+
+const LONG_PRESS_MS = 450;
+const MOVE_TOLERANCE = 10; // 長押し待ちの間に、この距離(px)以上動いたらスクロール扱い
+
+let press = null;          // 長押し待ち
+let drag = null;           // 並び替え中
+let suppressClick = false; // 長押しのあとのクリックで +1 しないため
+
+function wireLongPress(list, items) {
+  const cards = [...list.querySelectorAll('.task-card')];
+  if (cards.length < 2) return;
+  cards.forEach((card, index) => {
+    card.addEventListener('pointerdown', (e) => {
+      if (e.button !== 0 || drag) return;
+      if (e.target.closest('button, .t-icon')) return; // ボタン・アイコンからは始めない
+      cancelPress();
+      press = {
+        list, cards, card, index, item: items[index],
+        startX: e.clientX, startY: e.clientY, pointerId: e.pointerId,
+      };
+      press.timer = setTimeout(startDrag, LONG_PRESS_MS);
+    });
+  });
+}
+
+// 指の動き・離す操作は、カードの外へ出ても追えるように document で受ける（init で一度だけ登録）。
+function wireSortGestures() {
+  document.addEventListener('pointermove', (e) => {
+    if (drag) {
+      e.preventDefault();
+      moveDrag(e.clientY);
+    } else if (press && Math.hypot(e.clientX - press.startX, e.clientY - press.startY) > MOVE_TOLERANCE) {
+      cancelPress();
+    }
+  });
+  document.addEventListener('pointerup', () => { cancelPress(); if (drag) endDrag(false); });
+  document.addEventListener('pointercancel', () => { cancelPress(); if (drag) endDrag(true); });
+  // 並び替え中は画面をスクロールさせない（スマホ）。
+  document.addEventListener('touchmove', (e) => { if (drag) e.preventDefault(); }, { passive: false });
+}
+
+function cancelPress() {
+  if (press) clearTimeout(press.timer);
+  press = null;
+}
+
+function startDrag() {
+  const p = press;
+  press = null;
+  if (!p) return;
+  const rects = p.cards.map((c) => c.getBoundingClientRect());
+  drag = {
+    ...p,
+    rects,
+    gap: rects[1].top - rects[0].bottom,
+    target: p.index,
+  };
+  suppressClick = true;
+  p.card.classList.add('dragging');
+  p.list.classList.add('sorting');
+  // 持ち上がった合図にぶるっとさせる（ページで一度でもタップしたあとでないとブラウザが許可しない）。
+  if (navigator.userActivation?.hasBeenActive) navigator.vibrate?.(30);
+  // 指をこのカードに捕まえておく（失敗しても document で追えるので並び替えは続けられる）。
+  try { p.card.setPointerCapture(p.pointerId); } catch { /* すでに離れた指など */ }
+}
+
+function moveDrag(clientY) {
+  const d = drag;
+  const dy = clientY - d.startY;
+  const self = d.rects[d.index];
+  d.card.style.transform = `translateY(${dy}px) scale(1.03)`;
+  // 持ち上げたカードの中心より上にある（自分以外の）カードの数＝落とす位置。
+  const center = self.top + self.height / 2 + dy;
+  let target = 0;
+  d.rects.forEach((r, i) => { if (i !== d.index && r.top + r.height / 2 < center) target += 1; });
+  d.target = target;
+  // あいだのカードを1枚ぶんずらして、落とす場所をあける。
+  const shift = self.height + d.gap;
+  d.cards.forEach((c, i) => {
+    if (i === d.index) return;
+    let s = 0;
+    if (d.index < target && i > d.index && i <= target) s = -shift;
+    if (d.index > target && i >= target && i < d.index) s = shift;
+    c.style.transform = s ? `translateY(${s}px)` : '';
+  });
+}
+
+function endDrag(cancelled) {
+  const { item, index, target, list } = drag;
+  drag = null;
+  list.classList.remove('sorting');
+  // 離した直後に来るクリックを無視してから、通常に戻す。
+  setTimeout(() => { suppressClick = false; }, 60);
+  try {
+    if (!cancelled && target !== index) moveTaskTo(item.id, target, state.selectedId, state.viewDate);
+  } catch (err) {
+    console.error(err);
+  }
+  refresh();
 }
 
 // タスクの表示順を1つ上/下へ動かす（direction: -1 = 上, +1 = 下）。
