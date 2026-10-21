@@ -132,6 +132,7 @@ function refresh() {
   const { items } = getToday(state.selectedId, state.viewDate);
   const list = document.getElementById('task-list');
   list.innerHTML = '';
+  document.getElementById('sort-hint').hidden = items.length === 0;
 
   const label = isToday() ? '今日のタスク' : `${formatDayLabel(state.viewDate)}のタスク`;
   if (items.length === 0) {
@@ -147,7 +148,6 @@ function refresh() {
     list.appendChild(taskCard(item));
   });
   wireLongPress(list, items);
-  document.getElementById('sort-hint').hidden = items.length < 2;
 }
 
 // 日付の見出し・前後ボタン・「過去を見ています」の帯を更新する。
@@ -190,19 +190,22 @@ function taskCard(item) {
       ${subHtml(item)}
     </div>
     ${item.doneCount > 0 ? '<button class="t-undo" title="1回もどす">−</button>' : ''}
-    <div class="t-check${item.doneCount > 0 ? ' count' : ''}">${checkInner}</div>`;
+    <button class="t-check${item.doneCount > 0 ? ' count' : ''}" title="やった！（1回ふやす）">${checkInner}</button>`;
 
   // アイコンタップで履歴ページへ（カード本体タップ=+1 と分離）。
   card.querySelector('.t-icon').onclick = (e) => {
     e.stopPropagation();
+    if (justDragged) return; // アイコンから長押しで並び替えたあとは、履歴を開かない
     location.href = `./task.html?id=${encodeURIComponent(item.id)}`;
   };
   const undoBtn = card.querySelector('.t-undo');
   if (undoBtn) {
     undoBtn.onclick = (e) => { e.stopPropagation(); undoOne(item); };
   }
-  card.onclick = () => { if (!suppressClick) tapTask(item); };
+  // 回数をふやすのは右の〇だけ（カードの長押し=並び替えと取り違えないように）。
+  card.querySelector('.t-check').onclick = (e) => { e.stopPropagation(); tapTask(item); };
   card.addEventListener('contextmenu', (e) => e.preventDefault()); // 長押しでメニューを出さない
+  card.addEventListener('selectstart', (e) => e.preventDefault()); // 長押しで文字を選ばない
   return card;
 }
 
@@ -215,7 +218,7 @@ const MOVE_TOLERANCE = 10; // 長押し待ちの間に、この距離(px)以上�
 
 let press = null;          // 長押し待ち
 let drag = null;           // 並び替え中
-let suppressClick = false; // 長押しのあとのクリックで +1 しないため
+let justDragged = false;   // 並び替えを終えた直後（離したときのクリックを無視する）
 
 function wireLongPress(list, items) {
   const cards = [...list.querySelectorAll('.task-card')];
@@ -223,7 +226,7 @@ function wireLongPress(list, items) {
   cards.forEach((card, index) => {
     const begin = (e, x, y) => {
       if (drag) return;
-      if (e.target.closest('button, .t-icon')) return; // ボタン・アイコンからは始めない
+      if (e.target.closest('button')) return; // 〇・−ボタンからは始めない（それ以外はどこでも）
       cancelPress();
       press = { list, cards, card, index, item: items[index], startX: x, startY: y };
       press.timer = setTimeout(startDrag, LONG_PRESS_MS);
@@ -283,7 +286,6 @@ function startDrag() {
     gap: rects[1].top - rects[0].bottom,
     target: p.index,
   };
-  suppressClick = true;
   p.card.classList.add('dragging');
   p.list.classList.add('sorting');
   // 持ち上がった合図にぶるっとさせる（ページで一度でもタップしたあとでないとブラウザが許可しない）。
@@ -315,8 +317,8 @@ function endDrag(cancelled) {
   const { item, index, target, list } = drag;
   drag = null;
   list.classList.remove('sorting');
-  // 離した直後に来るクリックを無視してから、通常に戻す。
-  setTimeout(() => { suppressClick = false; }, 60);
+  justDragged = true;
+  setTimeout(() => { justDragged = false; }, 60);
   try {
     if (!cancelled && target !== index) moveTaskTo(item.id, target, state.selectedId, state.viewDate);
   } catch (err) {
@@ -325,7 +327,7 @@ function endDrag(cancelled) {
   refresh();
 }
 
-// カードをタップするたびに1回ぶん記録する（何回でも）。
+// 右の〇をタップするたびに1回ぶん記録する（何回でも）。
 // 過去の日を見ているときは、その日の記録として追加される。
 function tapTask(item) {
   try {
