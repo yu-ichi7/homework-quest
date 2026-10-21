@@ -1,6 +1,6 @@
 import {
   getChildren, getConfig, getToday, addCompletion, removeCompletion,
-  getLoginBonusView, claimLoginBonus, moveTask, moveTaskTo, WEEKDAY_JP,
+  getLoginBonusView, claimLoginBonus, moveTaskTo, WEEKDAY_JP,
 } from './store.js';
 import { levelProgress } from './lib/levels.js';
 import { flameTier } from './lib/streak.js';
@@ -143,8 +143,8 @@ function refresh() {
   }
   const doneCount = items.filter((i) => i.done).length;
   document.getElementById('today-title').textContent = `${label}（${doneCount}/${items.length}）`;
-  items.forEach((item, i) => {
-    list.appendChild(taskCard(item, i === 0, i === items.length - 1));
+  items.forEach((item) => {
+    list.appendChild(taskCard(item));
   });
   wireLongPress(list, items);
   document.getElementById('sort-hint').hidden = items.length < 2;
@@ -176,7 +176,7 @@ function subHtml(item) {
   return `<div class="t-sub">${chips.join('')}</div>`;
 }
 
-function taskCard(item, isFirst, isLast) {
+function taskCard(item) {
   const card = document.createElement('div');
   card.className = 'task-card' + (item.done ? ' done' : '');
 
@@ -184,10 +184,6 @@ function taskCard(item, isFirst, isLast) {
   const checkInner = item.doneCount > 0 ? `${item.doneCount}` : '';
 
   card.innerHTML = `
-    <div class="t-reorder">
-      <button class="t-move t-move-up" title="上へ動かす"${isFirst ? ' disabled' : ''}>▲</button>
-      <button class="t-move t-move-down" title="下へ動かす"${isLast ? ' disabled' : ''}>▼</button>
-    </div>
     <div class="t-icon" title="履歴を見る">${item.icon || '⭐'}</div>
     <div class="t-body">
       <div class="t-title">${item.title}</div>
@@ -205,8 +201,6 @@ function taskCard(item, isFirst, isLast) {
   if (undoBtn) {
     undoBtn.onclick = (e) => { e.stopPropagation(); undoOne(item); };
   }
-  card.querySelector('.t-move-up').onclick = (e) => { e.stopPropagation(); reorder(item, -1); };
-  card.querySelector('.t-move-down').onclick = (e) => { e.stopPropagation(); reorder(item, 1); };
   card.onclick = () => { if (!suppressClick) tapTask(item); };
   card.addEventListener('contextmenu', (e) => e.preventDefault()); // 長押しでメニューを出さない
   return card;
@@ -227,33 +221,50 @@ function wireLongPress(list, items) {
   const cards = [...list.querySelectorAll('.task-card')];
   if (cards.length < 2) return;
   cards.forEach((card, index) => {
-    card.addEventListener('pointerdown', (e) => {
-      if (e.button !== 0 || drag) return;
+    const begin = (e, x, y) => {
+      if (drag) return;
       if (e.target.closest('button, .t-icon')) return; // ボタン・アイコンからは始めない
       cancelPress();
-      press = {
-        list, cards, card, index, item: items[index],
-        startX: e.clientX, startY: e.clientY, pointerId: e.pointerId,
-      };
+      press = { list, cards, card, index, item: items[index], startX: x, startY: y };
       press.timer = setTimeout(startDrag, LONG_PRESS_MS);
+    };
+    // 指は touch イベントで追う。Android の Chrome は、指が動くとスクロールを始めて
+    // pointer イベントを打ち切る（pointercancel）ため、pointer だけだと並び替えが途中で止まる。
+    card.addEventListener('touchstart', (e) => {
+      if (e.touches.length !== 1) { cancelPress(); return; }
+      begin(e, e.touches[0].clientX, e.touches[0].clientY);
+    }, { passive: true });
+    card.addEventListener('pointerdown', (e) => {
+      if (e.pointerType !== 'mouse' || e.button !== 0) return; // マウスだけ。指は touchstart 側
+      begin(e, e.clientX, e.clientY);
     });
   });
 }
 
 // 指の動き・離す操作は、カードの外へ出ても追えるように document で受ける（init で一度だけ登録）。
 function wireSortGestures() {
-  document.addEventListener('pointermove', (e) => {
+  const move = (e, x, y) => {
     if (drag) {
-      e.preventDefault();
-      moveDrag(e.clientY);
-    } else if (press && Math.hypot(e.clientX - press.startX, e.clientY - press.startY) > MOVE_TOLERANCE) {
+      if (e.cancelable) e.preventDefault(); // 並び替え中は画面をスクロールさせない
+      moveDrag(y);
+    } else if (press && Math.hypot(x - press.startX, y - press.startY) > MOVE_TOLERANCE) {
       cancelPress();
     }
+  };
+  const end = (cancelled) => { cancelPress(); if (drag) endDrag(cancelled); };
+
+  document.addEventListener('touchmove', (e) => {
+    const t = e.touches[0];
+    if (t) move(e, t.clientX, t.clientY);
+  }, { passive: false });
+  document.addEventListener('touchend', (e) => {
+    if (drag) e.preventDefault(); // 離したあとのクリック(+1)を出さない
+    end(false);
   });
-  document.addEventListener('pointerup', () => { cancelPress(); if (drag) endDrag(false); });
-  document.addEventListener('pointercancel', () => { cancelPress(); if (drag) endDrag(true); });
-  // 並び替え中は画面をスクロールさせない（スマホ）。
-  document.addEventListener('touchmove', (e) => { if (drag) e.preventDefault(); }, { passive: false });
+  document.addEventListener('touchcancel', () => end(true));
+
+  document.addEventListener('pointermove', (e) => { if (e.pointerType === 'mouse') move(e, e.clientX, e.clientY); });
+  document.addEventListener('pointerup', (e) => { if (e.pointerType === 'mouse') end(false); });
 }
 
 function cancelPress() {
@@ -277,8 +288,6 @@ function startDrag() {
   p.list.classList.add('sorting');
   // 持ち上がった合図にぶるっとさせる（ページで一度でもタップしたあとでないとブラウザが許可しない）。
   if (navigator.userActivation?.hasBeenActive) navigator.vibrate?.(30);
-  // 指をこのカードに捕まえておく（失敗しても document で追えるので並び替えは続けられる）。
-  try { p.card.setPointerCapture(p.pointerId); } catch { /* すでに離れた指など */ }
 }
 
 function moveDrag(clientY) {
@@ -314,16 +323,6 @@ function endDrag(cancelled) {
     console.error(err);
   }
   refresh();
-}
-
-// タスクの表示順を1つ上/下へ動かす（direction: -1 = 上, +1 = 下）。
-function reorder(item, direction) {
-  try {
-    moveTask(item.id, direction, state.selectedId, state.viewDate);
-    refresh();
-  } catch (err) {
-    console.error(err);
-  }
 }
 
 // カードをタップするたびに1回ぶん記録する（何回でも）。
