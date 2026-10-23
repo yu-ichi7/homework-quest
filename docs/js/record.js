@@ -36,7 +36,7 @@ function renderTaskSummaries() {
 
     const chips = [];
     const tier = flameTier(t.streak);
-    if (tier > 0) chips.push(`<span class="flame flame-${tier}">🔥${t.streak}日</span>`);
+    if (tier > 0) chips.push(`<span class="flame flame-${tier}">🔥${t.streak}${t.streakUnit || '日'}</span>`);
     chips.push(`<span class="t-total">計${t.total}回</span>`);
     if (t.lastDone) chips.push(`<span class="t-total">最後 ${formatShortDate(t.lastDone)}</span>`);
     else chips.push('<span class="t-total">まだ記録なし</span>');

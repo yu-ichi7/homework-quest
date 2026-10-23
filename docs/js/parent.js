@@ -87,13 +87,20 @@ function refreshIconUI() {
 
 function wireForm() {
   const kind = document.getElementById('f-kind');
-  kind.onchange = () => {
-    const isSpot = kind.value === 'spot';
-    document.getElementById('days-field').hidden = isSpot;
-    document.getElementById('date-field').hidden = !isSpot;
-  };
+  kind.onchange = updateScheduleFields;
+  document.getElementById('f-freq').onchange = updateScheduleFields;
   document.getElementById('f-add').onclick = handleSubmitTask;
   document.getElementById('f-cancel').onclick = exitEditMode;
+}
+
+// 種類・くり返し方に合わせて、曜日・日付の欄を出し分ける。
+function updateScheduleFields() {
+  const isSpot = document.getElementById('f-kind').value === 'spot';
+  const weekly = !isSpot && document.getElementById('f-freq').value !== '0';
+  document.getElementById('freq-field').hidden = isSpot;
+  document.getElementById('freq-hint').hidden = !weekly;
+  document.getElementById('days-field').hidden = isSpot || weekly;
+  document.getElementById('date-field').hidden = !isSpot;
 }
 
 function handleSubmitTask() {
@@ -107,6 +114,7 @@ function handleSubmitTask() {
     kind,
   };
   if (kind === 'routine') {
+    body.timesPerWeek = Number(document.getElementById('f-freq').value) || 0;
     body.days = [...document.querySelectorAll('#f-days input:checked')].map((i) => Number(i.value));
   } else {
     body.date = document.getElementById('f-date').value;
@@ -136,9 +144,9 @@ function enterEditMode(task) {
   setIcon(task.icon || '📚');
   document.getElementById('f-points').value = task.points;
   document.getElementById('f-kind').value = task.kind;
+  document.getElementById('f-freq').value = String(task.timesPerWeek || 0);
+  updateScheduleFields();
   const isSpot = task.kind === 'spot';
-  document.getElementById('days-field').hidden = isSpot;
-  document.getElementById('date-field').hidden = !isSpot;
   if (isSpot) {
     document.getElementById('f-date').value = task.date || '';
   } else {
@@ -159,8 +167,8 @@ function exitEditMode() {
   setIcon('📚');
   document.getElementById('f-points').value = 10;
   document.getElementById('f-kind').value = 'routine';
-  document.getElementById('days-field').hidden = false;
-  document.getElementById('date-field').hidden = true;
+  document.getElementById('f-freq').value = '0';
+  updateScheduleFields();
   document.querySelectorAll('#f-days input').forEach((input, i) => {
     input.checked = i >= 1 && i <= 5;
   });
@@ -181,9 +189,12 @@ function renderTaskLists() {
 function taskRow(t) {
   const row = document.createElement('div');
   row.className = 'task-row';
-  const schedule = t.kind === 'routine'
-    ? (t.days || []).map((d) => WEEKDAY_JP[d]).join('・')
-    : t.date;
+  let schedule = t.date;
+  if (t.kind === 'routine') {
+    schedule = t.timesPerWeek
+      ? `週${t.timesPerWeek}回（曜日自由）`
+      : (t.days || []).map((d) => WEEKDAY_JP[d]).join('・');
+  }
   row.innerHTML = `
     <div class="icon">${t.icon || '⭐'}</div>
     <div class="meta">

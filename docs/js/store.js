@@ -11,8 +11,9 @@ import { canClaimToday, nextLoginStreak, computeLoginReward } from './lib/login.
 import { recomputeChild } from './lib/progress.js';
 import { expandForDay, withCompletionState } from './lib/taskExpand.js';
 import {
-  computeStreak, taskStreak, taskTotalCount, taskCountByDate,
+  computeStreak, taskStreak, taskTotalCount, taskCountByDate, streakUnit,
 } from './lib/streak.js';
+import { isWeekly, weekCount, ALL_DAYS } from './lib/weekly.js';
 import { todayStr, addDays } from './lib/dates.js';
 import { balance } from './lib/game.js';
 import {
@@ -273,7 +274,7 @@ export function addTask(body) {
     createdAt: new Date().toISOString(),
   };
   if (!task.title) throw new Error('タスク名を入力してください');
-  if (kind === 'routine' && task.days.length === 0) throw new Error('曜日を1つ以上選んでください');
+  if (kind === 'routine') applyFrequency(task, body);
   const data = load();
   data.tasks.push(task);
   save(data);
@@ -303,23 +304,37 @@ export function updateTask(id, body) {
   task.points = Number(body.points) || 0;
   task.kind = kind;
   if (kind === 'routine') {
-    const days = Array.isArray(body.days) ? body.days.map(Number) : [];
-    if (days.length === 0) throw new Error('曜日を1つ以上選んでください');
-    task.days = days;
+    applyFrequency(task, body);
     task.date = undefined;
   } else {
     task.date = body.date || todayStr();
     task.days = undefined;
+    delete task.timesPerWeek;
   }
   save(data);
   return task;
+}
+
+// 定番の頻度を決める。body.timesPerWeek(1〜6)があれば「週◯回（曜日は決めない）」、なければ曜日指定。
+function applyFrequency(task, body) {
+  const times = Math.floor(Number(body.timesPerWeek) || 0);
+  if (times >= 1) {
+    if (times > 6) throw new Error('週の回数は1〜6回で選んでください（毎日なら曜日を全部えらんでください）');
+    task.timesPerWeek = times;
+    task.days = [...ALL_DAYS]; // 古い版では「毎日」として出る
+    return;
+  }
+  delete task.timesPerWeek;
+  const days = Array.isArray(body.days) ? body.days.map(Number) : [];
+  if (days.length === 0) throw new Error('曜日を1つ以上選んでください');
+  task.days = days;
 }
 
 // 「今日」の表示順で、タスクを1つ上/下（direction: -1 / +1）へ動かす。
 // 曜日違いで今日は表示されないタスクを飛び越して、見えているタスク同士だけを入れ替える。
 export function moveTask(id, direction, childId, dateStr = todayStr()) {
   const data = load();
-  const visible = expandForDay(data.tasks, childId, dateStr);
+  const visible = expandForDay(data.tasks, childId, dateStr, data.completions);
   const pos = visible.findIndex((t) => t.id === id);
   if (pos < 0) return { ok: false, reason: 'not-visible' };
   const swapPos = pos + direction;
@@ -337,7 +352,7 @@ export function moveTask(id, direction, childId, dateStr = todayStr()) {
 // 曜日違いで今日は見えていないタスクの位置は変わらない。
 export function moveTaskTo(id, toIndex, childId, dateStr = todayStr()) {
   const data = load();
-  const order = expandForDay(data.tasks, childId, dateStr).map((t) => t.id);
+  const order = expandForDay(data.tasks, childId, dateStr, data.completions).map((t) => t.id);
   const from = order.indexOf(id);
   if (from < 0) return { ok: false, reason: 'not-visible' };
   const to = Math.max(0, Math.min(order.length - 1, toIndex));
@@ -362,6 +377,7 @@ export function getTaskHistory(taskId, today = todayStr()) {
     task,
     countByDate: taskCountByDate(task, data.completions),
     streak: taskStreak(task, data.completions, today),
+    streakUnit: streakUnit(task),
     total: taskTotalCount(task, data.completions),
     todayCount: (taskCountByDate(task, data.completions)[today]) || 0,
     today,
@@ -380,6 +396,7 @@ export function getTaskSummaries(today = todayStr()) {
       icon: task.icon,
       kind: task.kind,
       streak: taskStreak(task, data.completions, today),
+      streakUnit: streakUnit(task),
       total: taskTotalCount(task, data.completions),
       lastDone: dates.length > 0 ? dates[dates.length - 1] : null,
     };
@@ -390,7 +407,7 @@ export function getTaskSummaries(today = todayStr()) {
 
 export function getToday(childId, date = todayStr()) {
   const data = load();
-  const expanded = expandForDay(data.tasks, childId, date);
+  const expanded = expandForDay(data.tasks, childId, date, data.completions);
   const items = withCompletionState(expanded, data.completions, childId, date);
   // その日の達成回数（何回タップしたか）と継続（炎カウンター）を合成する。
   const enriched = items.map((item) => {
@@ -405,7 +422,12 @@ export function getToday(childId, date = todayStr()) {
       done: doneCount >= 1,
       lastCompletionId: doneCount > 0 ? dayComps[dayComps.length - 1].id : null,
       streak: task ? taskStreak(task, data.completions, date) : 0,
+      streakUnit: streakUnit(task),
       total: task ? taskTotalCount(task, data.completions) : 0,
+      // 週◯回の定番なら、その週の進み具合（その子の分）。
+      week: task && isWeekly(task)
+        ? { count: weekCount(task, data.completions, date, { childId }), times: task.timesPerWeek }
+        : null,
     };
   });
   return { date, childId, items: enriched };

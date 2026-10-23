@@ -1,13 +1,20 @@
 import { dayOfWeek } from './dates.js';
+import { isWeekly, weekCount } from './weekly.js';
 
 // tasks.json から、ある子・ある日付に「今日やること」を展開する。
 // routine: days に今日の曜日を含むもの。 spot: date が今日のもの。
+// 週◯回の定番: その週にまだ◯回やっていなければ毎日出す。◯回やったら、やった日以外は出さない。
 // childId 指定のタスクに加え、childId==="all"（きょうだい共通）も対象。
-export function expandForDay(tasks, childId, dateStr) {
+export function expandForDay(tasks, childId, dateStr, completions = []) {
   const dow = dayOfWeek(dateStr);
   return tasks.filter((t) => {
     if (t.active === false) return false;
     if (t.childId !== 'all' && t.childId !== childId) return false;
+    if (isWeekly(t)) {
+      const others = weekCount(t, completions, dateStr, { childId, exceptDate: dateStr });
+      const doneThatDay = completions.some((c) => c.taskId === t.id && c.childId === childId && c.date === dateStr);
+      return others < t.timesPerWeek || doneThatDay;
+    }
     if (t.kind === 'routine') return Array.isArray(t.days) && t.days.includes(dow);
     if (t.kind === 'spot') return t.date === dateStr;
     return false;

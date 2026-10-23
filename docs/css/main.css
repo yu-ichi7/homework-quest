@@ -224,6 +224,8 @@ body {
 }
 .t-sub .t-pt { color: var(--warn); }
 .t-sub .t-today-count { color: var(--accent); }
+.t-sub .t-week { color: #7c3aed; }
+.t-sub .t-week.met { color: var(--good); }
 .t-sub .t-total { color: var(--muted); }
 .t-sub .flame { border-radius: 999px; padding: 0 7px; }
 .t-sub .flame-1 { color: #d97706; background: #fff2dd; }
@@ -273,6 +275,8 @@ body {
   width: 100%; padding: 12px; border: 2px solid var(--line); border-radius: 12px;
   font-size: 16px; font-family: inherit; background: var(--card); color: var(--ink);
 }
+.field .hint { margin: 6px 0 0; font-size: 12px; color: var(--muted); line-height: 1.5; }
+.field .hint[hidden] { display: none; }
 .days-pick { display: flex; gap: 6px; flex-wrap: wrap; }
 .days-pick label {
   display: inline-flex; align-items: center; justify-content: center;

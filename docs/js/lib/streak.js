@@ -1,4 +1,5 @@
 import { todayStr, addDays, dayOfWeek } from './dates.js';
+import { isWeekly, weekStart, weekCount } from './weekly.js';
 
 // completions（その子の達成ログ）から連続達成日数を計算する。
 // 「今日」に達成があればそこから、なければ「昨日」から遡って数える
@@ -57,6 +58,7 @@ export function taskCountByDate(task, completions) {
 // 途切れ扱いにせず、一つ前の予定日から数え始める（グレース）。
 // spot は達成済み（目標回数まで到達）なら1、なければ0。
 export function taskStreak(task, completions, today = todayStr()) {
+  if (isWeekly(task)) return weeklyStreak(task, completions, today);
   const target = task.targetCount || 1;
   const counts = taskCountByDate(task, completions);
   const isDone = (date) => (counts[date] || 0) >= target;
@@ -76,6 +78,25 @@ export function taskStreak(task, completions, today = todayStr()) {
     cursor = prevScheduledBefore(cursor, task.days);
   }
   return count;
+}
+
+// 週◯回の定番の連続数＝「◯回やりきった週」が何週つづいているか。
+// 今週がまだ◯回に届いていなくても途切れ扱いにせず、先週から数える（グレース）。
+function weeklyStreak(task, completions, today) {
+  const met = (date) => weekCount(task, completions, date) >= task.timesPerWeek;
+  let cursor = weekStart(today);
+  if (!met(cursor)) cursor = addDays(cursor, -7);
+  let count = 0;
+  while (met(cursor)) {
+    count += 1;
+    cursor = addDays(cursor, -7);
+  }
+  return count;
+}
+
+// 連続数の単位（週◯回の定番は「週」、それ以外は「日」）。
+export function streakUnit(task) {
+  return task && isWeekly(task) ? '週' : '日';
 }
 
 // 炎の見た目の段階（0=なし, 1=小, 2=中, 3=大）。

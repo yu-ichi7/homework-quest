@@ -167,11 +167,15 @@ function renderDayNav() {
 // サブ情報はチップ1行に収める（チェックしても行数が増えないように）。
 function subHtml(item) {
   const chips = [`<span class="t-pt">+${item.points}pt</span>`];
+  if (item.week) {
+    const met = item.week.count >= item.week.times;
+    chips.push(`<span class="t-week${met ? ' met' : ''}">今週${item.week.count}/${item.week.times}回${met ? '✓' : ''}</span>`);
+  }
   if (item.doneCount > 0) {
     chips.push(`<span class="t-today-count">${isToday() ? '今日' : 'この日'}${item.doneCount}回</span>`);
   }
   const tier = flameTier(item.streak);
-  if (tier > 0) chips.push(`<span class="flame flame-${tier}">🔥${item.streak}日</span>`);
+  if (tier > 0) chips.push(`<span class="flame flame-${tier}">🔥${item.streak}${item.streakUnit || '日'}</span>`);
   if (item.total > 0) chips.push(`<span class="t-total">計${item.total}回</span>`);
   return `<div class="t-sub">${chips.join('')}</div>`;
 }

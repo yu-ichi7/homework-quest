@@ -26,6 +26,7 @@ function init() {
 function isScheduled(task, y, m, day) {
   const ds = `${y}-${String(m).padStart(2, '0')}-${String(day).padStart(2, '0')}`;
   if (task.kind === 'spot') return task.date === ds;
+  if (task.timesPerWeek) return false; // 週◯回の定番は、決まった予定日がない
   return Array.isArray(task.days) && task.days.includes(dayOfWeek(ds));
 }
 
@@ -43,7 +44,7 @@ function render(hist) {
   document.getElementById('t-name').textContent = task.title;
   document.title = `${task.title}の履歴 | お手伝いクエスト`;
 
-  document.getElementById('s-streak').innerHTML = `${hist.streak}<span class="u">日</span>`;
+  document.getElementById('s-streak').innerHTML = `${hist.streak}<span class="u">${hist.streakUnit || '日'}</span>`;
   document.getElementById('s-total').textContent = hist.total;
   document.getElementById('s-target').textContent = `${hist.todayCount || 0}回`;
 

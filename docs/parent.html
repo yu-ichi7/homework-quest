@@ -45,9 +45,22 @@
       <div class="field">
         <label>種類</label>
         <select id="f-kind">
-          <option value="routine">定番（毎週この曜日）</option>
+          <option value="routine">定番（毎週くり返す）</option>
           <option value="spot">スポット（この日だけ）</option>
         </select>
+      </div>
+      <div class="field" id="freq-field">
+        <label>くり返し方（定番）</label>
+        <select id="f-freq">
+          <option value="0">曜日を決める</option>
+          <option value="1">週に1回（曜日は決めない）</option>
+          <option value="2">週に2回（曜日は決めない）</option>
+          <option value="3">週に3回（曜日は決めない）</option>
+          <option value="4">週に4回（曜日は決めない）</option>
+          <option value="5">週に5回（曜日は決めない）</option>
+          <option value="6">週に6回（曜日は決めない）</option>
+        </select>
+        <p class="hint" id="freq-hint" hidden>その週（月〜日）にやった回数が届くまで、毎日「今日」に出ます。届いたら、その週はもう出ません。</p>
       </div>
       <div class="field" id="days-field">
         <label>曜日（定番）</label>
