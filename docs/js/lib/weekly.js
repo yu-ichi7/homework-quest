@@ -3,7 +3,7 @@ import { addDays, dayOfWeek } from './dates.js';
 // 「週に◯回（曜日は決めない）」の定番タスク。
 // データは定番(routine)のまま timesPerWeek を足しただけ。days には全曜日を入れておくので、
 // timesPerWeek を知らない古い版で開いても「毎日出るタスク」として壊れずに表示される。
-// 週は月曜はじまり（月〜日）で数える。
+// 週は記録ページのカレンダーに合わせて日曜はじまり（日〜土）で数える。
 
 export const ALL_DAYS = [0, 1, 2, 3, 4, 5, 6];
 
@@ -11,12 +11,12 @@ export function isWeekly(task) {
   return task.kind === 'routine' && Number(task.timesPerWeek) >= 1;
 }
 
-// dateStr を含む週の月曜日。
+// dateStr を含む週の日曜日。
 export function weekStart(dateStr) {
-  return addDays(dateStr, -((dayOfWeek(dateStr) + 6) % 7));
+  return addDays(dateStr, -dayOfWeek(dateStr));
 }
 
-// dateStr を含む週（月〜日）に、そのタスクを何回やったか。childId を渡すとその子の分だけ。
+// dateStr を含む週（日〜土）に、そのタスクを何回やったか。childId を渡すとその子の分だけ。
 // exceptDate を渡すと、その日の分は数えない。
 export function weekCount(task, completions, dateStr, { childId, exceptDate } = {}) {
   const from = weekStart(dateStr);
